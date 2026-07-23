@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------
+   CRITICAL LAYOUT RULE
+   Use min-height everywhere. NEVER height:100% on the
+   root chain — the fixed 3D canvas + long scroll pages
+   depend on the document being allowed to grow.
+--------------------------------------------------- */
+html,
+body,
+#root {
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #0a0a0b;
+  isolation: isolate;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  color: #f3f3ef;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #d7ff3e;
+  color: #0a0a0b;
+}
+
+/* Global keyboard focus ring — volt outline, keyboard-only (:focus-visible
+   is not triggered by mouse clicks, so mouse UX is unaffected).
+   The search input's Tailwind `focus:outline-none` targets :focus and does
+   NOT suppress this rule when the user tabs to it. */
+:focus-visible {
+  outline: 2px solid #d7ff3e;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* thin, dark scrollbar — keeps the drop-culture feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0b;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a2e;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d7ff3e;
+}
+
+/* ── Feature 2: grain-drift animation for GrainOverlay.jsx ── */
+@keyframes grain-drift {
+  0%   { transform: translate(0,    0);    }
+  10%  { transform: translate(-2%,  1%);   }
+  20%  { transform: translate(1%,  -2%);   }
+  30%  { transform: translate(-1%,  2%);   }
+  40%  { transform: translate(2%,  -1%);   }
+  50%  { transform: translate(-2%,  2%);   }
+  60%  { transform: translate(1%,   1%);   }
+  70%  { transform: translate(-1%, -1%);   }
+  80%  { transform: translate(2%,   2%);   }
+  90%  { transform: translate(-2%, -2%);   }
+  100% { transform: translate(0,    0);    }
+}
+
+/* ── Feature 3: logo easter-egg keyframes ── */
+@keyframes logo-spin-wiggle {
+  0%   { transform: rotate(0deg)   scale(1);    }
+  15%  { transform: rotate(180deg) scale(1.15); }
+  30%  { transform: rotate(360deg) scale(1);    }
+  42%  { transform: rotate(350deg) scale(1.05); }
+  54%  { transform: rotate(370deg) scale(1);    }
+  66%  { transform: rotate(360deg) scale(1.02); }
+  100% { transform: rotate(360deg) scale(1);    }
+}
+
+@keyframes particle-pop {
+  0%   { transform: translate(0, 0) scale(1);    opacity: 1; }
+  100% { transform: var(--tx, 40px) var(--ty, -60px) scale(0); opacity: 0; }
+}
+
+.logo-easter-egg {
+  display: inline-block;
+  animation: logo-spin-wiggle 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.easter-particle {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99998;
+  animation: particle-pop 0.8s ease-out forwards;
+}
+
+.text-outline {
+  -webkit-text-stroke: 1.5px #d7ff3e;
+  color: transparent;
+}
+
+.diagonal-tick {
+  clip-path: polygon(8% 0, 100% 0, 92% 100%, 0% 100%);
+}
+
+.font-display {
+  letter-spacing: -0.01em;
+}
+
+/* ── Responsiveness: mobile nav drawer ── */
+@keyframes nav-slide-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0);      }
+}
+
+.mobile-nav-open {
+  animation: nav-slide-down 0.22s ease-out forwards;
+}
+
+/* Every link/button in the mobile drawer gets at least 48px tap height */
+.mobile-nav-link {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+/* Scroll-section text: on mobile sits in the lower half of the screen
+   so the centered shoe occupies the upper half (Option A layout) */
+@media (max-width: 639px) {
+  .scroll-text-mobile {
+    margin-top: 48vh;
+  }
+}
