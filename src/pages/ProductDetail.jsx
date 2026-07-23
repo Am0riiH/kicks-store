@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext.jsx';
 import { useProductVariants } from '../hooks/useProductVariants.js';
 import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function ProductDetail() {
   const { id } = useParams();

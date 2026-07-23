@@ -23,7 +23,7 @@ import { useCart } from '../context/CartContext.jsx';
  *    • Show a generic fallback
  */
 
-const API_BASE      = 'http://localhost:3001';
+const API_BASE      = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const MAX_ATTEMPTS  = 4;    // total tries: 0 ms, 1500 ms, 3000 ms, 4500 ms
 const RETRY_DELAY   = 1500; // ms between retries
 

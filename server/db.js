@@ -40,7 +40,7 @@ const path = require('path');
 // the db synchronously once it's ready.
 const initSqlJs = require('sql.js');
 
-const DB_PATH = path.join(__dirname, 'data.db');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
 
 // ── Module state — populated by init() ────────────────────────────────────────
 let _db = null;   // the sql.js Database instance

@@ -8,7 +8,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function Home() {
   useDocumentTitle('Sneakers | Limited Drops');

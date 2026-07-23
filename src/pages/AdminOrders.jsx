@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import AdminNav from '../components/AdminNav.jsx';
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function AdminOrders() {
   const [authHeader, setAuthHeader] = useState(() => sessionStorage.getItem('adminAuth'));

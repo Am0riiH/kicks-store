@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import ProductCard from '../components/ProductCard.jsx';
 import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function Store() {
   useDocumentTitle('Shop All Sneakers | Drop Site');

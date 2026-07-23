@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext.jsx';
 import ProductCard from './ProductCard.jsx';
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 /* ---------------------------------------------------------
    Small inline icon set (no external icon lib needed)
@@ -270,7 +270,7 @@ function CheckoutButton({ items }) {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3001/api/create-checkout-session', {
+      const response = await fetch(`${API_BASE}/api/create-checkout-session`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
