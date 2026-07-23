@@ -373,15 +373,18 @@ app.post('/api/create-checkout-session', checkoutLimiter, validate(checkoutSchem
       };
     });
 
+    let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    // Defensively strip any trailing slash if it was provided in the env var
+    frontendUrl = frontendUrl.replace(/\/$/, '');
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items:           lineItems,
       mode:                 'payment',
       // {CHECKOUT_SESSION_ID} is filled by Stripe — lets the success page
       // call /api/order-status?session_id=cs_… to confirm server-side.
-      // PRODUCTION NOTE: Replace localhost:5173 with your real domain.
-      success_url: `http://localhost:5173/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `http://localhost:5173/checkout/cancel`,
+      success_url: `${frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${frontendUrl}/checkout/cancel`,
     });
 
     res.json({ url: session.url });
