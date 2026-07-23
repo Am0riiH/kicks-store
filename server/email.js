@@ -31,7 +31,7 @@ const { Resend } = require('resend');
 // PRODUCTION: replace with your verified domain address, e.g. "orders@yourstore.com"
 // TEST:       "onboarding@resend.dev" works immediately but only delivers to your
 //             own Resend account's email — useful for smoke-testing the integration.
-const FROM_ADDRESS = 'Air Jordan Store <onboarding@resend.dev>';
+const FROM_ADDRESS = process.env.EMAIL_FROM || 'Air Jordan Store <hello@amoridev.com>';
 
 // ─── HTML email template ──────────────────────────────────────────────────────
 // • All styles are inline — email clients ignore <style> tags and external CSS
