@@ -137,13 +137,19 @@ async function init() {
     }
   }
 
-  // Seed variants if empty
+  // Check if we need to seed variants (either because it's a fresh DB or variants were missed)
   const varCountStmt = _db.prepare('SELECT count(*) as count FROM product_variants');
   varCountStmt.step();
   const varCount = varCountStmt.getAsObject().count;
   varCountStmt.free();
 
-  if (varCount === 0 && count !== 0) {
+  // Get current product count, because 'count' might be 0 from before we seeded products
+  const currentCountStmt = _db.prepare('SELECT count(*) as count FROM products');
+  currentCountStmt.step();
+  const currentProductCount = currentCountStmt.getAsObject().count;
+  currentCountStmt.free();
+
+  if (varCount === 0 && currentProductCount !== 0) {
     // If variants are empty but we have products, seed default variants
     console.log(`    Database      : seeding initial variants`);
     const allProds = _db.exec('SELECT id, colorway FROM products');
