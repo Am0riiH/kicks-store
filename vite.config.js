@@ -4,6 +4,36 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   plugins: [
+    // ── Inline plugin: inject the GLB preload via Vite’s HTML transform API ────────────
+    // A hand-written <link rel="preload"> in the source index.html is silently
+    // stripped by Vite’s build because the file isn’t part of Rollup’s asset
+    // graph. Injecting via transformIndexHtml is the official, build-safe way.
+    // order:’pre’ ensures this runs before Vite’s own HTML processing and
+    // before vite-plugin-pwa mutates the <head>.
+    {
+      name: 'inject-glb-preload',
+      transformIndexHtml: {
+        order: 'pre',
+        handler() {
+          return [
+            {
+              tag: 'link',
+              attrs: {
+                rel: 'preload',
+                as: 'fetch',
+                href: '/models/air-jordan-draco.glb',
+                // crossorigin is required: Three.js’s FileLoader uses the Fetch
+                // API with CORS mode, so the preload cache key must match.
+                // Without this attribute the browser would make a second fetch
+                // when the JS-initiated request arrives (cache miss).
+                crossorigin: '',
+              },
+              injectTo: 'head',
+            },
+          ];
+        },
+      },
+    },
     react(),
     VitePWA({
       registerType: 'autoUpdate',

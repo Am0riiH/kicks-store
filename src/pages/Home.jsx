@@ -35,15 +35,64 @@ export default function Home() {
   const text1Ref = useRef();
   const text2Ref = useRef();
   const cardWrapRef = useRef();
+  // Cached list of shoe mesh materials — populated ONCE after the model loads
+  // (the scene graph is static after loading). Both Scroll 3 callbacks reuse
+  // this instead of calling shoe.traverse() on every scroll threshold crossing.
+  const materialsRef = useRef([]);
 
   const introTl = useRef(null);
   const floatTween = useRef(null);
+  // Timeline ref for the watermark text animation (separate from the shoe
+  // timeline so it can start on mount without waiting for isModelLoaded).
+  const textTl = useRef(null);
+
+  // ── Text intro: runs immediately on mount, INDEPENDENT of GLB load ─────────
+  // Decoupling the watermark animation from isModelLoaded means Chrome records
+  // LCP when the text first becomes visible (~T=150ms into the animation at
+  // scale:3.0) rather than at GLB-load completion (~T=3s). The shoe drop still
+  // waits for the model; only the text runs eagerly.
+  //
+  // WHY opacity:0 in the span’s JSX style: this prevents the one-frame flash
+  // where the span would otherwise render at opacity:1 before useEffect fires.
+  // gsap.set inside playTextIntro overwrites it but the browser sees opacity:0
+  // on the very first paint, so Chrome can't record an opacity:1 LCP entry
+  // before GSAP takes control.
+  function playTextIntro() {
+    if (!heroTextRef.current) return;
+    textTl.current?.kill();
+    // Start HUGE (scale 3×), transparent, shifted up — then shrink to watermark size.
+    // The moment opacity first crosses 0 (very early in the 0.9s tween, at scale≈3.0)
+    // is when Chrome records the LCP entry, which is ~T=150ms after mount.
+    gsap.set(heroTextRef.current, { scale: 3.0, opacity: 0, y: -140 });
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+    textTl.current = tl;
+    tl.to(heroTextRef.current, {
+      scale: 1.92,
+      opacity: 0.10,
+      duration: 0.9,
+    });
+  }
+
+  useEffect(() => {
+    playTextIntro();
+  }, []); // empty deps — runs once on mount, no model-load dependency
 
   useGSAP(
     () => {
       if (!isModelLoaded) return;
       const shoe = shoeGroupRef.current;
       if (!shoe) return;
+
+      // ── Pre-collect shoe mesh materials once at load time ───────────────────
+      // Traversing the scene graph is O(n) in the number of nodes. Doing it
+      // inside onEnter / onLeaveBack (as the old code did) ran it on every
+      // scroll threshold crossing. Since the graph never changes after load,
+      // we walk it once here and cache the result in materialsRef.
+      const matList = [];
+      shoe.traverse((child) => {
+        if (child.isMesh && child.material) matList.push(child.material);
+      });
+      materialsRef.current = matList;
 
       // ── Responsive breakpoint values captured once on mount ──
       const vw = window.innerWidth;
@@ -56,13 +105,12 @@ export default function Home() {
       const s1x = isMobile ? 0 : isTablet ? -0.9 : -1.6;
       const s2x = isMobile ? 0 : isTablet ?  0.9 :  1.6;
       /* -----------------------------------------------------------
-         PHASE 0 — Initial load / reload / logo click
-         Giant backlit "AIR JORDAN" fills the screen then shrinks to
-         a watermark, while the shoe drops from above, does a full
-         360, lands center, then starts a continuous float loop.
+         PHASE 0 — Shoe drop animation (text is handled separately
+         by playTextIntro() which runs on mount, not here).
+         On replay both playTextIntro() and playShoeIntro() are called.
       ----------------------------------------------------------- */
-      function playIntro() {
-        // Kill any rogue tweens (especially the "dock to corner" unmount tween triggered by React Strict Mode)
+      function playShoeIntro() {
+        // Kill any rogue tweens (especially from React Strict Mode’s double-invoke)
         gsap.killTweensOf(shoe.position);
         gsap.killTweensOf(shoe.rotation);
         gsap.killTweensOf(shoe.scale);
@@ -70,40 +118,24 @@ export default function Home() {
         floatTween.current?.kill();
         introTl.current?.kill();
 
-        // reset starting state every time this replays (logo click)
+        // Reset shoe to its “off-screen above” starting state
         gsap.set(shoe.position, { x: 0, y: 6, z: 0 });
         gsap.set(shoe.rotation, { x: 0.2, y: 0, z: 0.1 });
         gsap.set(shoe.scale, { x: 0.01, y: 0.01, z: 0.01 });
-        // The user wants it to start HUGE and shrink down to its watermark size
-        gsap.set(heroTextRef.current, { scale: 3.0, opacity: 0, y: -140 });
+        // NOTE: heroTextRef is NOT touched here. Text animation is driven by
+        // playTextIntro() exclusively, which runs independently of the shoe.
 
         const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
         introTl.current = tl;
 
-        // Shrink + fade-in the background text to its final watermark size
-        tl.to(heroTextRef.current, {
-          scale: 1.92,
-          opacity: 0.10,
-          duration: 1.3, // Matches the duration of the shoe drop
-          ease: 'power3.out', // Smooth deceleration
-        }, '<')
-          // shoe: drop in + 360 spin + scale up, all simultaneous with the title shrink
-          .to(
-            shoe.position,
-            { y: -0.8, duration: 1.3, ease: 'bounce.out' },
-            '<'
-          )
-          .to(
-            shoe.rotation,
-            { y: `+=${Math.PI * 2}`, duration: 1.3, ease: 'power2.out' },
-            '<'
-          )
+        tl
+          .to(shoe.position, { y: -0.8, duration: 1.3, ease: 'bounce.out' }, '<')
+          .to(shoe.rotation, { y: `+=${Math.PI * 2}`, duration: 1.3, ease: 'power2.out' }, '<')
           .to(
             shoe.scale,
             { x: heroEndScale, y: heroEndScale, z: heroEndScale, duration: 1.1, ease: 'back.out(1.6)' },
             '<'
           )
-          // settle, then kick off the perpetual float loop
           .call(() => {
             floatTween.current = gsap.to(shoe.position, {
               y: '+=0.18',
@@ -115,7 +147,7 @@ export default function Home() {
           });
       }
 
-      playIntro();
+      playShoeIntro();
 
       /* -----------------------------------------------------------
          SCROLL 1 — shoe glides left, copy fades in on the right
@@ -166,11 +198,8 @@ export default function Home() {
         start: 'top 60%',
         end: 'bottom 40%',
         onEnter: () => {
-          // Extract materials to fade the shoe out
-          const materials = [];
-          shoe.traverse((child) => {
-            if (child.isMesh && child.material) materials.push(child.material);
-          });
+          // Reuse the pre-cached materials list — no traverse() call needed.
+          const materials = materialsRef.current;
 
           gsap.to(text2Ref.current, { opacity: 0, x: -40, duration: 0.4, overwrite: 'auto' });
 
@@ -188,10 +217,8 @@ export default function Home() {
           );
         },
         onLeaveBack: () => {
-          const materials = [];
-          shoe.traverse((child) => {
-            if (child.isMesh && child.material) materials.push(child.material);
-          });
+          // Reuse the pre-cached materials list — no traverse() call needed.
+          const materials = materialsRef.current;
 
           // Card shrinks and fades away
           gsap.to(cardWrapRef.current, { opacity: 0, y: 50, scale: 0.8, duration: 0.4, ease: 'power2.inOut', overwrite: 'auto' });
@@ -214,7 +241,10 @@ export default function Home() {
         } else {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-        playIntro();
+        // Restart BOTH animations. playTextIntro() is defined in the component
+        // body (outside useGSAP) and is always in scope here.
+        playTextIntro();
+        playShoeIntro();
       };
       window.addEventListener('replay-intro', onReplay);
 
@@ -257,16 +287,32 @@ export default function Home() {
           </filter>
         </svg>
 
-        {/* Real h1 for screen readers and crawlers — visually hidden.
-            The decorative "AIR JORDAN" watermark below is aria-hidden. */}
-        <h1 className="sr-only">Sneakers — Latest Drops</h1>
+        {/* ── Static LCP element ─────────────────────────────────────────────────────────────
+             Replaces the sr-only h1 with a visually present, semantically
+             correct element. Renders from first paint with no opacity:0 or
+             GSAP dependency, giving Chrome an immediate LCP candidate.
+             The animated watermark will still become Chrome’s final LCP
+             element, but it now paints at ~T=150ms (animation start) rather
+             than ~T=3s (GLB load completion). */}
+        <div
+          className="absolute bottom-28 sm:bottom-24 left-0 right-0 text-center z-10 pointer-events-none select-none px-6"
+        >
+          <span className="block font-mono text-[0.6rem] uppercase tracking-[0.45em] text-volt/70 mb-2">
+            Authenticated Pairs · Limited Edition
+          </span>
+          <h1 className="font-display text-4xl sm:text-5xl uppercase leading-[0.95] text-bone/90">
+            New Season<br className="sm:hidden" /> Drop
+          </h1>
+        </div>
 
-        {/* Decorative watermark — purely visual, excluded from a11y tree */}
+        {/* Decorative watermark — purely visual, excluded from a11y tree.
+            opacity:0 on the initial JSX style prevents any one-frame
+            opacity:1 flash before the playTextIntro() useEffect fires. */}
         <span
           ref={heroTextRef}
           aria-hidden="true"
           className="font-display select-none whitespace-nowrap text-center uppercase leading-none text-volt absolute -z-10"
-          style={{ fontSize: 'clamp(3rem, 16vw, 14rem)', filter: 'url(#stain-filter)' }}
+          style={{ fontSize: 'clamp(3rem, 16vw, 14rem)', filter: 'url(#stain-filter)', opacity: 0 }}
         >
           AIR JORDAN
         </span>

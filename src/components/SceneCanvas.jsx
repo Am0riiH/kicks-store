@@ -13,6 +13,15 @@ import { useScene } from '../context/SceneContext.jsx';
  *   mobile  (<640px)   → fov 55
  *   tablet  (640-1023) → fov 45
  *   desktop (1024px+)  → fov 40
+ *
+ * Render quality is also adaptive:
+ *   mobile (≤768px): dpr capped at 1.5, antialias off, shadows off,
+ *                    ContactShadows skipped — cuts GPU fillrate load
+ *                    significantly on phone GPUs.
+ *   desktop (>768px): unchanged — full quality, dpr up to 2, MSAA, shadows.
+ *
+ * The 768px threshold is wider than the layout breakpoint (640px) so that
+ * mid-range tablets also benefit from the reduced GPU budget.
  */
 
 function getResponsiveFov(width) {
@@ -20,6 +29,14 @@ function getResponsiveFov(width) {
   if (width < 1024) return 45;
   return 40;
 }
+
+/**
+ * Detected once at module load time (before any React rendering).
+ * We intentionally avoid making this reactive — render quality is chosen
+ * at page-load based on the primary device type and doesn't need to
+ * change dynamically when a user resizes a browser window.
+ */
+const isMobile = window.innerWidth <= 768;
 
 export default function SceneCanvas() {
   const { shoeGroupRef, setModelLoaded } = useScene();
@@ -44,18 +61,40 @@ export default function SceneCanvas() {
       }}
     >
       <Canvas
-        shadows
-        dpr={[1, 2]}
+        frameloop="demand"
+        shadows={!isMobile}
+        dpr={isMobile ? [1, 1.5] : [1, 2]}
         camera={{ position: [0, 0, 6], fov }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: !isMobile, alpha: true }}
       >
         <ambientLight intensity={0.8} />
-        <directionalLight position={[4, 6, 4]} intensity={1.4} castShadow />
-        <spotLight position={[-4, 3, -2]} angle={0.4} penumbra={1} intensity={0.8} color="#D7FF3E" />
+        {/* castShadow on the light only matters when the Canvas shadow map is
+            enabled (desktop). On mobile shadows={false} already disables the
+            shadow render pass, but we mirror the flag here for clarity. */}
+        <directionalLight
+          position={[4, 6, 4]}
+          intensity={1.4}
+          castShadow={!isMobile}
+        />
+        <spotLight
+          position={[-4, 3, -2]}
+          angle={0.4}
+          penumbra={1}
+          intensity={0.8}
+          color="#D7FF3E"
+        />
 
         <Suspense fallback={null}>
           {/* start off-screen top; Phase 0 GSAP timeline drops it in */}
-          <ShoeModel ref={shoeGroupRef} onLoad={() => setModelLoaded(true)} position={[0, 6, -1]} rotation={[0, 1, 0]} scale={1.26} />
+          <ShoeModel
+            ref={shoeGroupRef}
+            onLoad={() => setModelLoaded(true)}
+            position={[0, 6, -1]}
+            rotation={[0, 1, 0]}
+            scale={1.26}
+            enableShadows={!isMobile}
+            enableContactShadows={!isMobile}
+          />
         </Suspense>
       </Canvas>
     </div>
