@@ -4,52 +4,27 @@ import { useScene } from '../context/SceneContext.jsx';
 /**
  * LoadingBar
  *
- * A slim horizontal progress bar with a sneaker silhouette that travels
- * along it as the GLB model downloads.  Positioned at the bottom of the
- * hero area, layered ON TOP of the poster image.
+ * A slim horizontal progress bar with a photo-real sneaker marker that travels
+ * along it as the GLB model downloads.
+ *
+ * Position:
+ *   Tracks the exact bounding box of the "AIR JORDAN" watermark (passed via textRef)
+ *   so it perfectly underlines the wordmark.
  *
  * Progress source:
  *   loadProgress from SceneContext (-1 = canvas not mounted / indeterminate,
- *   0–100 = real XHR progress via drei's useProgress → ProgressBridge).
- *
- * Lifecycle:
- *   - Visible immediately on mount.
- *   - When loadProgress === -1 (canvas still lazy-loading), shows a gentle
- *     indeterminate shimmer so it doesn't look frozen.
- *   - When loadProgress >= 0, switches to determinate mode and tracks the
- *     real download.
- *   - On completion (isSceneReady || sceneError), fades out via the parent
- *     (Home.jsx controls the fade-out to coordinate with the poster crossfade).
- *
- * All motion is pure CSS transform — no WebGL, no JS animation loops.
+ *   0-100 = real XHR progress via drei's useProgress).
  */
-
-/* ── Sneaker silhouette SVG (inline, no external asset) ─────────────────── */
-function SneakerIcon({ className }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 32 18"
-      fill="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      {/* Simplified Air Jordan 1 high-top silhouette */}
-      <path d="M6 16.5C6 16.5 5.5 14 5.5 12C5.5 10 6 8.5 6.5 7.5C7 6.5 8 5 9 4C10 3 11.5 2 13 1.5C14.5 1 16 1 17 1.5C18 2 18.5 3 19 4L20 5.5L22 5C23 4.8 24.5 4.5 26 5C27.5 5.5 28.5 6.5 29 7.5C29.5 8.5 30 10 30 11.5C30 13 29.5 14 29 15C28.5 16 28 16.5 28 16.5L6 16.5Z" />
-      {/* Sole line */}
-      <rect x="4" y="16" width="27" height="1.5" rx="0.75" />
-    </svg>
-  );
-}
 
 const REDUCED_MOTION =
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export default function LoadingBar() {
+export default function LoadingBar({ textRef }) {
   const { loadProgress, isSceneReady, sceneError } = useScene();
   const barRef = useRef();
   const [visible, setVisible] = useState(true);
+  const [metrics, setMetrics] = useState({ width: 300, top: 0, left: 0 });
 
   // Determine whether we're in indeterminate mode (canvas not mounted yet)
   const isIndeterminate = loadProgress < 0;
@@ -67,65 +42,106 @@ export default function LoadingBar() {
     }
   }, [isSceneReady, sceneError]);
 
+  // Track the text bounds to position the bar perfectly under it
+  useEffect(() => {
+    if (!textRef?.current || !visible) return;
+    
+    const updateMetrics = () => {
+      const rect = textRef.current.getBoundingClientRect();
+      if (rect.width > 0) {
+        setMetrics({
+          width: rect.width,
+          top: rect.bottom, // Sit right at the baseline
+          left: rect.left
+        });
+      }
+    };
+    
+    // 1. Initial read
+    updateMetrics();
+
+    // 2. Track window resizes (which changes the clamp() font-size)
+    const observer = new ResizeObserver(updateMetrics);
+    // Observe both the text element and the window/body just to be safe
+    observer.observe(textRef.current);
+    observer.observe(document.body);
+
+    // 3. Track the GSAP intro animation scaling
+    window.addEventListener('watermark-update', updateMetrics);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('watermark-update', updateMetrics);
+    };
+  }, [textRef, visible]);
+
   if (!visible) return null;
 
   return (
     <div
       ref={barRef}
       aria-hidden="true"
-      className="pointer-events-none absolute z-30 left-0 right-0"
-      style={{ bottom: '5.5rem' }}
+      className="pointer-events-none fixed z-30 flex flex-col gap-2"
+      style={{
+        width: metrics.width,
+        top: metrics.top + 4, // 4px gap below baseline
+        left: metrics.left,
+      }}
     >
-      <div className="mx-auto flex max-w-xs flex-col items-center gap-2 px-6 sm:max-w-sm">
-        {/* Track */}
-        <div className="relative h-[2px] w-full overflow-hidden rounded-full bg-white/10">
-          {/* Fill bar */}
-          <div
-            className="absolute inset-y-0 left-0 rounded-full"
-            style={{
-              width: isIndeterminate ? '30%' : `${pct}%`,
-              background: 'linear-gradient(90deg, rgba(215,255,62,0.4), #D7FF3E)',
-              transition: isIndeterminate
-                ? 'none'
-                : REDUCED_MOTION
-                  ? 'width 0.3s linear'
-                  : 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              // Indeterminate shimmer animation
-              ...(isIndeterminate && !REDUCED_MOTION
-                ? { animation: 'loadbar-shimmer 1.5s ease-in-out infinite' }
-                : {}),
-            }}
+      {/* Track */}
+      <div className="relative h-[2px] w-full overflow-hidden rounded-full bg-white/10">
+        {/* Fill bar */}
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{
+            width: isIndeterminate ? '30%' : `${pct}%`,
+            background: 'linear-gradient(90deg, rgba(220,38,38,0.4), #dc2626)',
+            transition: isIndeterminate
+              ? 'none'
+              : REDUCED_MOTION
+                ? 'width 0.3s linear'
+                : 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            ...(isIndeterminate && !REDUCED_MOTION
+              ? { animation: 'loadbar-shimmer 1.5s ease-in-out infinite' }
+              : {}),
+          }}
+        />
+      </div>
+
+      {/* Sneaker + percentage row */}
+      <div className="relative h-6 w-full">
+        {/* Sneaker marker that travels along the bar */}
+        <div
+          className="absolute flex items-center justify-center pointer-events-none"
+          style={{
+            bottom: '4px', // Sit perfectly on the bar
+            left: `${isIndeterminate ? 0 : pct}%`,
+            transform: 'translateX(-50%)',
+            transition: isIndeterminate
+              ? 'none'
+              : REDUCED_MOTION
+                ? 'left 0.3s linear'
+                : 'left 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            ...(isIndeterminate && !REDUCED_MOTION
+              ? { animation: 'loadbar-shimmer 1.5s ease-in-out infinite' }
+              : {}),
+          }}
+        >
+          {/* Photo-real sneaker marker recovered from poster */}
+          <img 
+            src="/ui/sneaker-marker.webp" 
+            alt="" 
+            aria-hidden="true"
+            className="w-[48px] h-auto drop-shadow-lg"
           />
         </div>
-
-        {/* Sneaker + percentage row */}
-        <div className="relative h-5 w-full">
-          {/* Sneaker icon that travels along the bar */}
-          <div
-            className="absolute top-0 flex items-center gap-1"
-            style={{
-              left: `${isIndeterminate ? 0 : pct}%`,
-              transform: 'translateX(-50%)',
-              transition: isIndeterminate
-                ? 'none'
-                : REDUCED_MOTION
-                  ? 'left 0.3s linear'
-                  : 'left 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              ...(isIndeterminate && !REDUCED_MOTION
-                ? { animation: 'loadbar-shimmer 1.5s ease-in-out infinite' }
-                : {}),
-            }}
-          >
-            <SneakerIcon className="h-3.5 w-auto text-volt drop-shadow-[0_0_4px_rgba(215,255,62,0.5)]" />
-          </div>
-          {/* Percentage text */}
-          <span
-            className="absolute right-0 top-0 font-mono text-[0.6rem] uppercase tracking-[0.2em] tabular-nums"
-            style={{ color: 'rgba(215,255,62,0.6)' }}
-          >
-            {isIndeterminate ? 'Initializing…' : `${pct}%`}
-          </span>
-        </div>
+        {/* Percentage text */}
+        <span
+          className="absolute right-0 top-0 font-mono text-[0.6rem] uppercase tracking-[0.2em] tabular-nums"
+          style={{ color: 'rgba(220,38,38,0.8)' }}
+        >
+          {isIndeterminate ? 'Initializing…' : `${pct}%`}
+        </span>
       </div>
 
       {/* Keyframes for indeterminate shimmer */}

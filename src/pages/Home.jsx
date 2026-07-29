@@ -30,7 +30,6 @@ export default function Home() {
 
   const containerRef = useRef();
   const heroTextRef = useRef();
-  const posterRef = useRef();
   const [wasLoadedOnMount] = useState(isModelLoaded);
   const scroll1Ref = useRef();
   const scroll2Ref = useRef();
@@ -73,6 +72,7 @@ export default function Home() {
       scale: 1.92,
       opacity: 0.10,
       duration: 0.9,
+      onUpdate: () => window.dispatchEvent(new CustomEvent('watermark-update'))
     });
   }
 
@@ -168,7 +168,7 @@ export default function Home() {
         }
       }
 
-      // Handle the poster crossfade when the scene signals it's ready (rendered one frame)
+      // Handle the canvas fade-in when the scene signals it's ready (rendered one frame)
       if (isSceneReady && !sceneError) {
         const wrapper = document.getElementById('scene-canvas-wrapper');
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -176,15 +176,11 @@ export default function Home() {
         // Set up the shoe pose before fading in
         playShoeIntro(false);
 
-        if (wrapper && posterRef.current) {
+        if (wrapper) {
           if (prefersReducedMotion) {
             gsap.set(wrapper, { opacity: 1 });
-            gsap.set(posterRef.current, { display: 'none' });
           } else {
-            // Smooth crossfade
-            gsap.to(posterRef.current, { opacity: 0, duration: 0.4, ease: 'none', onComplete: () => {
-              if (posterRef.current) posterRef.current.style.display = 'none';
-            }});
+            // Smooth fade in
             gsap.to(wrapper, { opacity: 1, duration: 0.4, ease: 'none' });
           }
         }
@@ -328,24 +324,10 @@ export default function Home() {
           </filter>
         </svg>
 
-        {/* ── Static Poster (LCP Element) ───────────────────────────────────────────────────
-             Renders immediately on paint. It is swapped out for the 3D canvas
-             imperceptibly once the GLB is loaded and rendered. */}
-        <img
-          ref={posterRef}
-          src="/posters/shoe-poster-desktop.webp"
-          srcSet="/posters/shoe-poster-mobile.webp 780w, /posters/shoe-poster-desktop.webp 2880w"
-          sizes="100vw"
-          fetchpriority="high"
-          alt="Air Jordan 1 Chicago"
-          className="pointer-events-none absolute left-0 top-0 h-full w-full object-cover z-20"
-        />
-
         {/* ── Loading Progress Bar ──────────────────────────────────────────────────────────
-             Layers ON TOP of the poster. Tracks real GLB download progress via
-             SceneContext.loadProgress (fed by ProgressBridge inside the R3F tree).
+             Tracks real GLB download progress via SceneContext.loadProgress.
              Auto-fades out when isSceneReady or sceneError. */}
-        <LoadingBar />
+        <LoadingBar textRef={heroTextRef} />
 
         {/* ── Static LCP element ─────────────────────────────────────────────────────────────
              Replaces the sr-only h1 with a visually present, semantically
