@@ -50,6 +50,7 @@ export default function SceneCanvas() {
 
   return (
     <div
+      id="scene-canvas-wrapper"
       style={{
         position: 'fixed',
         top: 0,
@@ -58,6 +59,7 @@ export default function SceneCanvas() {
         height: '100vh',
         zIndex: 0,
         pointerEvents: 'none',
+        opacity: 0, // starts hidden, crossfaded in by Home.jsx when ready
       }}
     >
       <Canvas

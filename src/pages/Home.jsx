@@ -12,7 +12,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function Home() {
   useDocumentTitle('Sneakers | Limited Drops');
-  const { shoeGroupRef, isModelLoaded } = useScene();
+  const { shoeGroupRef, isModelLoaded, isSceneReady, sceneError } = useScene();
   
   const [featuredProduct, setFeaturedProduct] = useState(null);
 
@@ -29,7 +29,7 @@ export default function Home() {
 
   const containerRef = useRef();
   const heroTextRef = useRef();
-  const loaderRef = useRef();
+  const posterRef = useRef();
   const [wasLoadedOnMount] = useState(isModelLoaded);
   const scroll1Ref = useRef();
   const scroll2Ref = useRef();
@@ -111,13 +111,7 @@ export default function Home() {
          by playTextIntro() which runs on mount, not here).
          On replay both playTextIntro() and playShoeIntro() are called.
       ----------------------------------------------------------- */
-      function playShoeIntro() {
-        // Fade out the loading indicator smoothly right as the shoe drops in
-        if (loaderRef.current) {
-          gsap.to(loaderRef.current, { opacity: 0, duration: 0.6, ease: 'power2.out' });
-        }
-
-        // Kill any rogue tweens (especially from React Strict Mode’s double-invoke)
+      function playShoeIntro(isReplay = false) {
         gsap.killTweensOf(shoe.position);
         gsap.killTweensOf(shoe.rotation);
         gsap.killTweensOf(shoe.scale);
@@ -125,25 +119,43 @@ export default function Home() {
         floatTween.current?.kill();
         introTl.current?.kill();
 
-        // Reset shoe to its “off-screen above” starting state
-        gsap.set(shoe.position, { x: 0, y: 6, z: 0 });
-        gsap.set(shoe.rotation, { x: 0.2, y: 0, z: 0.1 });
-        gsap.set(shoe.scale, { x: 0.01, y: 0.01, z: 0.01 });
-        // NOTE: heroTextRef is NOT touched here. Text animation is driven by
-        // playTextIntro() exclusively, which runs independently of the shoe.
+        // If it's a replay (logo click), we do the full drop animation
+        if (isReplay) {
+          gsap.set(shoe.position, { x: 0, y: 6, z: 0 });
+          gsap.set(shoe.rotation, { x: 0.2, y: 0, z: 0.1 });
+          gsap.set(shoe.scale, { x: 0.01, y: 0.01, z: 0.01 });
 
-        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-        introTl.current = tl;
+          const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+          introTl.current = tl;
 
-        tl
-          .to(shoe.position, { y: -0.8, duration: 1.3, ease: 'bounce.out' }, '<')
-          .to(shoe.rotation, { y: `+=${Math.PI * 2}`, duration: 1.3, ease: 'power2.out' }, '<')
-          .to(
-            shoe.scale,
-            { x: heroEndScale, y: heroEndScale, z: heroEndScale, duration: 1.1, ease: 'back.out(1.6)' },
-            '<'
-          )
-          .call(() => {
+          tl
+            .to(shoe.position, { y: -0.8, duration: 1.3, ease: 'bounce.out' }, '<')
+            .to(shoe.rotation, { y: `+=${Math.PI * 2}`, duration: 1.3, ease: 'power2.out' }, '<')
+            .to(
+              shoe.scale,
+              { x: heroEndScale, y: heroEndScale, z: heroEndScale, duration: 1.1, ease: 'back.out(1.6)' },
+              '<'
+            )
+            .call(() => {
+              const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+              if (!prefersReducedMotion) {
+                floatTween.current = gsap.to(shoe.position, {
+                  y: '+=0.18',
+                  duration: 1.6,
+                  ease: 'sine.inOut',
+                  yoyo: true,
+                  repeat: -1,
+                });
+              }
+            });
+        } else {
+          // On first load (Option A), just set the resting pose immediately to match the poster perfectly.
+          gsap.set(shoe.position, { x: 0, y: -0.8, z: 0 });
+          gsap.set(shoe.rotation, { x: 0.2, y: 0, z: 0.1 });
+          gsap.set(shoe.scale, { x: heroEndScale, y: heroEndScale, z: heroEndScale });
+          
+          const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (!prefersReducedMotion) {
             floatTween.current = gsap.to(shoe.position, {
               y: '+=0.18',
               duration: 1.6,
@@ -151,10 +163,31 @@ export default function Home() {
               yoyo: true,
               repeat: -1,
             });
-          });
+          }
+        }
       }
 
-      playShoeIntro();
+      // Handle the poster crossfade when the scene signals it's ready (rendered one frame)
+      if (isSceneReady && !sceneError) {
+        const wrapper = document.getElementById('scene-canvas-wrapper');
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // Set up the shoe pose before fading in
+        playShoeIntro(false);
+
+        if (wrapper && posterRef.current) {
+          if (prefersReducedMotion) {
+            gsap.set(wrapper, { opacity: 1 });
+            gsap.set(posterRef.current, { display: 'none' });
+          } else {
+            // Smooth crossfade
+            gsap.to(posterRef.current, { opacity: 0, duration: 0.4, ease: 'none', onComplete: () => {
+              if (posterRef.current) posterRef.current.style.display = 'none';
+            }});
+            gsap.to(wrapper, { opacity: 1, duration: 0.4, ease: 'none' });
+          }
+        }
+      }
 
       /* -----------------------------------------------------------
          SCROLL 1 — shoe glides left, copy fades in on the right
@@ -251,7 +284,7 @@ export default function Home() {
         // Restart BOTH animations. playTextIntro() is defined in the component
         // body (outside useGSAP) and is always in scope here.
         playTextIntro();
-        playShoeIntro();
+        playShoeIntro(true);
       };
       window.addEventListener('replay-intro', onReplay);
 
@@ -262,7 +295,7 @@ export default function Home() {
         window.removeEventListener('replay-intro', onReplay);
       };
     },
-    { scope: containerRef, dependencies: [isModelLoaded] }
+    { scope: containerRef, dependencies: [isModelLoaded, isSceneReady, sceneError] }
   );
 
   // when navigating away from Home, dock the shoe into a small corner
@@ -294,24 +327,18 @@ export default function Home() {
           </filter>
         </svg>
 
-        {/* ── Visual Loading Indicator ────────────────────────────────────────────────────────
-             Gives users immediate visual feedback while the 3D model loads.
-             Lightweight pure CSS/DOM element to avoid impacting LCP.
-             Fades out smoothly via GSAP when playShoeIntro() begins. */}
-        <div
-          ref={loaderRef}
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-3"
-          style={{ opacity: wasLoadedOnMount ? 0 : 1 }}
-        >
-          <svg className="h-8 w-8 animate-spin text-volt" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span className="font-mono text-[0.65rem] uppercase tracking-[0.3em] text-volt/80 animate-pulse">
-            Loading Drop...
-          </span>
-        </div>
+        {/* ── Static Poster (LCP Element) ───────────────────────────────────────────────────
+             Renders immediately on paint. It is swapped out for the 3D canvas
+             imperceptibly once the GLB is loaded and rendered. */}
+        <img
+          ref={posterRef}
+          src="/posters/shoe-poster-desktop.webp"
+          srcSet="/posters/shoe-poster-mobile.webp 780w, /posters/shoe-poster-desktop.webp 2880w"
+          sizes="100vw"
+          fetchPriority="high"
+          alt="Air Jordan 1 Chicago"
+          className="pointer-events-none absolute left-0 top-0 h-full w-full object-cover z-20"
+        />
 
         {/* ── Static LCP element ─────────────────────────────────────────────────────────────
              Replaces the sr-only h1 with a visually present, semantically

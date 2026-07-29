@@ -22,11 +22,20 @@ export default defineConfig({
                 rel: 'preload',
                 as: 'fetch',
                 href: '/models/air-jordan-draco.glb',
-                // crossorigin is required: Three.js’s FileLoader uses the Fetch
-                // API with CORS mode, so the preload cache key must match.
-                // Without this attribute the browser would make a second fetch
-                // when the JS-initiated request arrives (cache miss).
                 crossorigin: '',
+              },
+              injectTo: 'head',
+            },
+            {
+              tag: 'link',
+              attrs: {
+                rel: 'preload',
+                as: 'image',
+                fetchpriority: 'high',
+                imagesrcset: '/posters/shoe-poster-mobile.webp 780w, /posters/shoe-poster-desktop.webp 2880w',
+                imagesizes: '100vw',
+                // Fallback href if imagesrcset isn't supported
+                href: '/posters/shoe-poster-desktop.webp',
               },
               injectTo: 'head',
             },

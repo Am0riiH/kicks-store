@@ -1,6 +1,9 @@
+import React, { Suspense, useState, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import SceneCanvas from './components/SceneCanvas.jsx';
 import { SceneProvider } from './context/SceneContext.jsx';
+import SceneErrorBoundary from './components/SceneErrorBoundary.jsx';
+
+const SceneCanvas = React.lazy(() => import('./components/SceneCanvas.jsx'));
 import Navbar from './components/Navbar.jsx';
 import Home from './pages/Home.jsx';
 import Store from './pages/Store.jsx';
@@ -19,11 +22,31 @@ export default function App() {
   const location = useLocation();
   useSmoothScroll();
 
+  // Defer 3D scene load until after first paint
+  const [load3D, setLoad3D] = useState(false);
+
+  useEffect(() => {
+    // Graceful degradation: if user has data-saver enabled, skip the 1.8MB+ 3D load entirely.
+    // The poster will remain permanently.
+    const isDataSaver = navigator.connection?.saveData === true;
+    if (isDataSaver) return;
+
+    // Use requestIdleCallback to wait for the browser to finish rendering the first paint
+    // (the poster and text) before kicking off the heavy Three.js chunk download + parse.
+    const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
+    const handle = idleCallback(() => setLoad3D(true), { timeout: 1000 });
+    return () => window.cancelIdleCallback ? window.cancelIdleCallback(handle) : clearTimeout(handle);
+  }, []);
+
   return (
 
     <SceneProvider>
       {/* z-0: the persistent 3D layer, fixed, behind everything, non-interactive */}
-      <SceneCanvas />
+      <SceneErrorBoundary>
+        <Suspense fallback={null}>
+          {load3D && <SceneCanvas />}
+        </Suspense>
+      </SceneErrorBoundary>
 
       {/* Feature 2: film-grain overlay — SVG feTurbulence, pointer-events:none */}
       <GrainOverlay />

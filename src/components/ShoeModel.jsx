@@ -1,6 +1,6 @@
 import { forwardRef, useRef, useEffect } from 'react';
 import { useGLTF, Environment, ContactShadows } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 
 /**
  * ShoeModel
@@ -26,6 +26,23 @@ const ShoeModel = forwardRef(function ShoeModel(
 ) {
   const { scene } = useGLTF('/models/air-jordan-draco.glb');
   const innerSpin = useRef();
+  const { invalidate } = useThree();
+  const { markSceneReady } = useScene();
+  const hasSignalledReady = useRef(false);
+
+  // Dev-only: expose R3F invalidate on window for external capture scripts
+  useEffect(() => {
+    if (import.meta.env.DEV) window.__invalidate = invalidate;
+  }, [invalidate]);
+
+  // Wait one frame after load so the GPU has actually rendered the model
+  // before signalling that the scene is ready for crossfade
+  useFrame(() => {
+    if (!hasSignalledReady.current) {
+      hasSignalledReady.current = true;
+      markSceneReady?.();
+    }
+  });
 
   // Gentle idle rotation — independent of GSAP's outer-group animations.
   //
@@ -66,7 +83,7 @@ const ShoeModel = forwardRef(function ShoeModel(
 
   return (
     <group ref={ref} {...props} dispose={null}>
-      <group ref={innerSpin}>
+      <group ref={innerSpin} name="innerSpin">
         <primitive object={scene} scale={0.85} />
       </group>
       {/*
