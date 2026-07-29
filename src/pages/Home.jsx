@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { useScene } from '../context/SceneContext.jsx';
 import ProductCard from '../components/ProductCard.jsx';
+import LoadingBar from '../components/LoadingBar.jsx';
 import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -339,6 +340,12 @@ export default function Home() {
           alt="Air Jordan 1 Chicago"
           className="pointer-events-none absolute left-0 top-0 h-full w-full object-cover z-20"
         />
+
+        {/* ── Loading Progress Bar ──────────────────────────────────────────────────────────
+             Layers ON TOP of the poster. Tracks real GLB download progress via
+             SceneContext.loadProgress (fed by ProgressBridge inside the R3F tree).
+             Auto-fades out when isSceneReady or sceneError. */}
+        <LoadingBar />
 
         {/* ── Static LCP element ─────────────────────────────────────────────────────────────
              Replaces the sr-only h1 with a visually present, semantically

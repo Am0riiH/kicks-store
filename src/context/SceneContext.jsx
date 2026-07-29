@@ -18,6 +18,11 @@ export function SceneProvider({ children }) {
   // the error boundary sets this.  Home.jsx checks it and keeps the poster.
   const [sceneError, setSceneError] = useState(null);
 
+  // Real GLB download progress (0–100), written by ProgressBridge inside the
+  // R3F tree and read by the DOM-based LoadingBar in Home.jsx.
+  // -1 = canvas not mounted yet (indeterminate), 0–99 = downloading, 100 = done.
+  const [loadProgress, setLoadProgress] = useState(-1);
+
   const markSceneReady = useCallback(() => setSceneReady(true), []);
 
   // Dev-only: expose refs on window for external tooling (Puppeteer capture scripts)
@@ -33,6 +38,7 @@ export function SceneProvider({ children }) {
     isModelLoaded, setModelLoaded,
     isSceneReady, markSceneReady,
     sceneError, setSceneError,
+    loadProgress, setLoadProgress,
   };
   return <SceneContext.Provider value={value}>{children}</SceneContext.Provider>;
 }

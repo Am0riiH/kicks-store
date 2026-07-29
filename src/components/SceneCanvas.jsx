@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { Suspense, useState, useEffect } from 'react';
 import ShoeModel from './ShoeModel.jsx';
+import ProgressBridge from './ProgressBridge.jsx';
 import { useScene } from '../context/SceneContext.jsx';
 
 /**
@@ -85,6 +86,10 @@ export default function SceneCanvas() {
           intensity={0.8}
           color="#D7FF3E"
         />
+
+        {/* Reports real XHR progress to SceneContext — must be outside
+            Suspense so it runs while the GLB is still downloading. */}
+        <ProgressBridge />
 
         <Suspense fallback={null}>
           {/* start off-screen top; Phase 0 GSAP timeline drops it in */}
