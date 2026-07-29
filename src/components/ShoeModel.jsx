@@ -1,6 +1,7 @@
 import { forwardRef, useRef, useEffect } from 'react';
 import { useGLTF, Environment, ContactShadows } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
+import { useScene } from '../context/SceneContext.jsx';
 
 /**
  * ShoeModel

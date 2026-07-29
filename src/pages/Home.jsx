@@ -335,7 +335,7 @@ export default function Home() {
           src="/posters/shoe-poster-desktop.webp"
           srcSet="/posters/shoe-poster-mobile.webp 780w, /posters/shoe-poster-desktop.webp 2880w"
           sizes="100vw"
-          fetchPriority="high"
+          fetchpriority="high"
           alt="Air Jordan 1 Chicago"
           className="pointer-events-none absolute left-0 top-0 h-full w-full object-cover z-20"
         />
