@@ -28,16 +28,26 @@ export default function LoadingBar({ textRef }) {
 
   // Determine whether we're in indeterminate mode (canvas not mounted yet)
   const isIndeterminate = loadProgress < 0;
-  // Clamp to 0-100
-  const pct = isIndeterminate ? 0 : Math.min(100, Math.max(0, loadProgress));
+  // Raw clamped percentage from context
+  const rawPct = isIndeterminate ? 0 : Math.min(100, Math.max(0, loadProgress));
+  
+  // Ref to track the highest percentage we've ever seen so we NEVER jump backward
+  const maxPctRef = useRef(0);
+  if (!isIndeterminate && rawPct > maxPctRef.current) {
+    maxPctRef.current = rawPct;
+  }
+  
+  // If the scene reports ready but progress didn't hit 100, force it to 100
+  // for a clean handoff.
+  const displayPct = isSceneReady ? 100 : maxPctRef.current;
 
   // Fade out and unmount when scene is ready or errored
   useEffect(() => {
     if ((isSceneReady || sceneError) && barRef.current) {
-      // Fade out over 400ms, then unmount
+      // Fade out over 400ms, then unmount (wait slightly longer so the 100% can visually render)
       barRef.current.style.transition = 'opacity 0.4s ease-out';
       barRef.current.style.opacity = '0';
-      const timer = setTimeout(() => setVisible(false), 420);
+      const timer = setTimeout(() => setVisible(false), 600);
       return () => clearTimeout(timer);
     }
   }, [isSceneReady, sceneError]);
@@ -99,7 +109,7 @@ export default function LoadingBar({ textRef }) {
         <div
           className="absolute inset-y-0 left-0 rounded-full"
           style={{
-            width: isIndeterminate ? '30%' : `${pct}%`,
+            width: isIndeterminate ? '30%' : `${displayPct}%`,
             background: 'linear-gradient(90deg, rgba(220,38,38,0.4), #dc2626)',
             transition: isIndeterminate
               ? 'none'
@@ -120,7 +130,7 @@ export default function LoadingBar({ textRef }) {
           className="absolute flex items-center justify-center pointer-events-none"
           style={{
             bottom: '4px', // Sit perfectly on the bar
-            left: `${isIndeterminate ? 0 : pct}%`,
+            left: `${isIndeterminate ? 0 : displayPct}%`,
             transform: 'translateX(-50%)',
             transition: isIndeterminate
               ? 'none'
@@ -145,7 +155,7 @@ export default function LoadingBar({ textRef }) {
           className="absolute right-0 top-0 font-mono text-[0.6rem] uppercase tracking-[0.2em] tabular-nums"
           style={{ color: 'rgba(220,38,38,0.8)' }}
         >
-          {isIndeterminate ? 'Initializing…' : `${pct}%`}
+          {isIndeterminate ? 'Initializing…' : `${displayPct}%`}
         </span>
       </div>
 

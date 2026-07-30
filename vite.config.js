@@ -26,6 +26,16 @@ export default defineConfig({
               },
               injectTo: 'head',
             },
+            {
+              tag: 'link',
+              attrs: {
+                rel: 'preload',
+                as: 'fetch',
+                href: '/ui/potsdamer_platz_256.exr',
+                crossorigin: '',
+              },
+              injectTo: 'head',
+            },
           ];
         },
       },

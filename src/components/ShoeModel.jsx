@@ -96,7 +96,7 @@ const ShoeModel = forwardRef(function ShoeModel(
       {enableContactShadows && (
         <ContactShadows position={[0, -0.9, 0]} opacity={0.5} scale={6} blur={2.4} far={2} />
       )}
-      <Environment preset="city" />
+      <Environment files="/ui/potsdamer_platz_256.exr" />
     </group>
   );
 });
