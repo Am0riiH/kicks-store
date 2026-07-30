@@ -49,10 +49,15 @@ export default function LoadingBar({ textRef }) {
     const updateMetrics = () => {
       const rect = textRef.current.getBoundingClientRect();
       if (rect.width > 0) {
+        // Bar should be ~45% of the watermark width, bounded by sensible min/max
+        const targetWidth = Math.max(180, Math.min(420, rect.width * 0.45));
+        // Center it perfectly underneath the watermark
+        const targetLeft = rect.left + (rect.width - targetWidth) / 2;
+        
         setMetrics({
-          width: rect.width,
+          width: targetWidth,
           top: rect.bottom, // Sit right at the baseline
-          left: rect.left
+          left: targetLeft
         });
       }
     };
