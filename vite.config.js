@@ -36,6 +36,25 @@ export default defineConfig({
               },
               injectTo: 'head',
             },
+            {
+              tag: 'link',
+              attrs: {
+                rel: 'preload',
+                as: 'script',
+                href: '/basis/basis_transcoder.js',
+              },
+              injectTo: 'head',
+            },
+            {
+              tag: 'link',
+              attrs: {
+                rel: 'preload',
+                as: 'fetch',
+                href: '/basis/basis_transcoder.wasm',
+                crossorigin: '',
+              },
+              injectTo: 'head',
+            },
           ];
         },
       },

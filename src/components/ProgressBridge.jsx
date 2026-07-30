@@ -28,6 +28,7 @@ export default function ProgressBridge() {
     // useProgress is also the zustand store itself — it exposes .subscribe()
     // and .getState() as a vanilla zustand store.
     const unsubscribe = useProgress.subscribe((state) => {
+      console.log(`[PROGRESS] item: ${state.item} | loaded: ${state.loaded} | total: ${state.total} | progress: ${state.progress.toFixed(2)}`);
       const rounded = Math.round(state.progress);
       if (rounded !== prev.current) {
         prev.current = rounded;

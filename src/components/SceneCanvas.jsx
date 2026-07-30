@@ -40,8 +40,12 @@ function getResponsiveFov(width) {
 const isMobile = window.innerWidth <= 768;
 
 export default function SceneCanvas() {
-  const { shoeGroupRef, setModelLoaded } = useScene();
+  const { shoeGroupRef, setModelLoaded, isSceneReady } = useScene();
   const [fov, setFov] = useState(() => getResponsiveFov(window.innerWidth));
+
+  useEffect(() => {
+    window.__isSceneReady = isSceneReady;
+  }, [isSceneReady]);
 
   useEffect(() => {
     const onResize = () => setFov(getResponsiveFov(window.innerWidth));

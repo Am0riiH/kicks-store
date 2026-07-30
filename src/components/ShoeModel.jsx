@@ -3,6 +3,8 @@ import { useGLTF, Environment, ContactShadows } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useScene } from '../context/SceneContext.jsx';
 
+import { KTX2Loader } from 'three-stdlib';
+
 /**
  * ShoeModel
  * Loads /models/air-jordan-draco.glb and exposes a forwarded ref pointing at the
@@ -25,7 +27,16 @@ const ShoeModel = forwardRef(function ShoeModel(
   { onLoad, enableShadows = true, enableContactShadows = true, ...props },
   ref,
 ) {
-  const { scene } = useGLTF('/models/air-jordan-draco.glb');
+  const gl = useThree((state) => state.gl);
+  const modelUrl = new URLSearchParams(window.location.search).get('model') === 'simplified' 
+    ? '/models/air-jordan-simplified.glb' 
+    : '/models/air-jordan-draco.glb';
+  const { scene } = useGLTF(modelUrl, true, true, (loader) => {
+    const ktx2Loader = new KTX2Loader();
+    ktx2Loader.setTranscoderPath('/basis/');
+    ktx2Loader.detectSupport(gl);
+    loader.setKTX2Loader(ktx2Loader);
+  });
   const innerSpin = useRef();
   const { invalidate } = useThree();
   const { markSceneReady } = useScene();
@@ -100,7 +111,5 @@ const ShoeModel = forwardRef(function ShoeModel(
     </group>
   );
 });
-
-useGLTF.preload('/models/air-jordan-draco.glb');
 
 export default ShoeModel;
