@@ -83,6 +83,25 @@ async function init() {
     // Ignore error if column already exists
   }
 
+  // ── Shipping Details Migration ──────────────────────────────────────────────
+  const tableInfoStmt = _db.prepare("PRAGMA table_info(orders)");
+  const existingColumns = [];
+  while (tableInfoStmt.step()) {
+    existingColumns.push(tableInfoStmt.getAsObject().name);
+  }
+  tableInfoStmt.free();
+
+  const requiredColumns = [
+    'shipping_name', 'shipping_phone', 'shipping_line1', 'shipping_line2',
+    'shipping_city', 'shipping_state', 'shipping_postal_code', 'shipping_country'
+  ];
+
+  for (const col of requiredColumns) {
+    if (!existingColumns.includes(col)) {
+      _db.run(`ALTER TABLE orders ADD COLUMN ${col} TEXT;`);
+    }
+  }
+
   // Create products table
   _db.run(`
     CREATE TABLE IF NOT EXISTS products (
@@ -220,10 +239,16 @@ module.exports = {
     const existing = _getOrderById(session.id);
     if (existing) return { inserted: false, duplicate: true };
 
+    const shipping = session.shipping_details || {};
+    const address = shipping.address || {};
+    const shippingName = shipping.name || null;
+    const shippingPhone = session.customer_details?.phone || null;
+
     _db.run(
       `INSERT INTO orders
-         (id, status, amount_total, currency, customer_email, customer_name, items, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, status, amount_total, currency, customer_email, customer_name, items, created_at,
+          shipping_name, shipping_phone, shipping_line1, shipping_line2, shipping_city, shipping_state, shipping_postal_code, shipping_country)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         session.id,
         session.payment_status ?? 'paid',
@@ -233,6 +258,14 @@ module.exports = {
         session.customer_details?.name  ?? null,
         JSON.stringify(items),
         new Date().toISOString(),
+        shippingName,
+        shippingPhone,
+        address.line1 ?? null,
+        address.line2 ?? null,
+        address.city ?? null,
+        address.state ?? null,
+        address.postal_code ?? null,
+        address.country ?? null
       ]
     );
 

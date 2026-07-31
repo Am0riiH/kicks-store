@@ -17,6 +17,7 @@ export default function AdminOrders() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
 
   // 1. Enforce noindex dynamically so this page is hidden from search engines
   useEffect(() => {
@@ -283,82 +284,122 @@ export default function AdminOrders() {
                     : status === 'rejected' 
                       ? 'text-red-400 bg-red-400/10 border-red-400/20' 
                       : 'text-smoke bg-white/5 border-white/10';
+                  const isExpanded = expandedOrderId === order.id;
 
                   return (
-                  <tr key={order.id} className="hover:bg-white/5 transition-colors">
-                    <td className="p-4 whitespace-nowrap text-smoke">
-                      {new Date(order.created_at).toLocaleDateString(undefined, { 
-                        month: 'short', day: 'numeric', year: 'numeric' 
-                      })}
-                      <br/>
-                      <span className="text-[10px] text-white/30">
-                        {new Date(order.created_at).toLocaleTimeString(undefined, { 
-                          hour: '2-digit', minute: '2-digit' 
-                        })}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <div className="font-bold text-bone">
-                        {order.customer_name || '(Guest)'}
-                      </div>
-                      <div className="text-xs text-smoke">
-                        {order.customer_email || 'No email provided'}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex flex-col gap-1 text-xs">
-                        {order.items?.map((item, i) => (
-                          <div key={i} className="flex justify-between gap-4">
-                            <span className="truncate max-w-[200px]" title={item.description}>
-                              {item.description}
-                            </span>
-                            <span className="text-smoke whitespace-nowrap">× {item.quantity}</span>
+                    <React.Fragment key={order.id}>
+                      <tr 
+                        className={`hover:bg-white/5 transition-colors cursor-pointer ${isExpanded ? 'bg-white/5' : ''}`}
+                        onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                      >
+                        <td className="p-4 whitespace-nowrap text-smoke">
+                          {new Date(order.created_at).toLocaleDateString(undefined, { 
+                            month: 'short', day: 'numeric', year: 'numeric' 
+                          })}
+                          <br/>
+                          <span className="text-[10px] text-white/30">
+                            {new Date(order.created_at).toLocaleTimeString(undefined, { 
+                              hour: '2-digit', minute: '2-digit' 
+                            })}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <div className="font-bold text-bone">
+                            {order.customer_name || '(Guest)'}
                           </div>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="p-4 text-right font-bold text-volt whitespace-nowrap">
-                      ${(order.amount_total / 100).toFixed(2)} {order.currency?.toUpperCase()}
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 text-[10px] uppercase tracking-widest rounded border ${badgeColor}`}>
-                        {status}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <div className="text-xs text-white/40 truncate w-24" title={order.id}>
-                        {order.id}
-                      </div>
-                    </td>
-                    <td className="p-4 text-right whitespace-nowrap">
-                      <div className="flex gap-2 justify-end">
-                        {status !== 'completed' && (
-                          <button 
-                            onClick={() => handleStatusChange(order.id, 'completed')}
-                            className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-volt hover:bg-volt/10 rounded border border-volt/20 transition-colors"
-                          >
-                            Complete
-                          </button>
-                        )}
-                        {status !== 'rejected' && (
-                          <button 
-                            onClick={() => handleStatusChange(order.id, 'rejected')}
-                            className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-red-400 hover:bg-red-400/10 rounded border border-red-400/20 transition-colors"
-                          >
-                            Reject
-                          </button>
-                        )}
-                        {status !== 'pending' && (
-                          <button 
-                            onClick={() => handleStatusChange(order.id, 'pending')}
-                            className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-smoke hover:bg-white/5 rounded border border-white/10 transition-colors"
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                          <div className="text-xs text-smoke">
+                            {order.customer_email || 'No email provided'}
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex flex-col gap-1 text-xs">
+                            {order.items?.map((item, i) => (
+                              <div key={i} className="flex justify-between gap-4">
+                                <span className="truncate max-w-[200px]" title={item.description}>
+                                  {item.description}
+                                </span>
+                                <span className="text-smoke whitespace-nowrap">× {item.quantity}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="p-4 text-right font-bold text-volt whitespace-nowrap">
+                          ${(order.amount_total / 100).toFixed(2)} {order.currency?.toUpperCase()}
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 text-[10px] uppercase tracking-widest rounded border ${badgeColor}`}>
+                            {status}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <div className="text-xs text-white/40 truncate w-24" title={order.id}>
+                            {order.id}
+                          </div>
+                        </td>
+                        <td className="p-4 text-right whitespace-nowrap">
+                          <div className="flex gap-2 justify-end">
+                            {status !== 'completed' && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'completed'); }}
+                                className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-volt hover:bg-volt/10 rounded border border-volt/20 transition-colors"
+                              >
+                                Complete
+                              </button>
+                            )}
+                            {status !== 'rejected' && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'rejected'); }}
+                                className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-red-400 hover:bg-red-400/10 rounded border border-red-400/20 transition-colors"
+                              >
+                                Reject
+                              </button>
+                            )}
+                            {status !== 'pending' && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'pending'); }}
+                                className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-smoke hover:bg-white/5 rounded border border-white/10 transition-colors"
+                              >
+                                Reset
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr className="bg-black/60 border-b border-white/10">
+                          <td colSpan="7" className="p-6">
+                            <div className="flex flex-col sm:flex-row gap-12">
+                              <div>
+                                <h4 className="text-[10px] font-mono text-smoke uppercase tracking-widest mb-3">Shipping Details</h4>
+                                {order.shipping_name ? (
+                                  <div className="text-sm font-mono text-bone leading-relaxed">
+                                    <div className="font-bold mb-1">{order.shipping_name}</div>
+                                    <div>{order.shipping_line1}</div>
+                                    {order.shipping_line2 && <div>{order.shipping_line2}</div>}
+                                    <div>
+                                      {order.shipping_city}
+                                      {order.shipping_state ? `, ${order.shipping_state}` : ''}{' '}
+                                      {order.shipping_postal_code}
+                                    </div>
+                                    <div className="text-smoke mt-1">{order.shipping_country}</div>
+                                  </div>
+                                ) : (
+                                  <div className="text-sm font-mono text-smoke italic">No shipping information provided.</div>
+                                )}
+                              </div>
+                              {order.shipping_phone && (
+                                <div>
+                                  <h4 className="text-[10px] font-mono text-smoke uppercase tracking-widest mb-3">Contact Phone</h4>
+                                  <div className="text-sm font-mono text-bone">
+                                    {order.shipping_phone}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>

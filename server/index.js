@@ -117,11 +117,17 @@ app.post(
 
         console.log('\n✅  checkout.session.completed received');
         console.log('    ─────────────────────────────────────');
+        console.log('Webhook session object:', JSON.stringify(session, null, 2));
         console.log(`    Session ID    : ${session.id}`);
         console.log(`    Payment status: ${session.payment_status}`);
         console.log(`    Amount total  : $${(session.amount_total / 100).toFixed(2)} ${session.currency.toUpperCase()}`);
         console.log(`    Customer email: ${session.customer_details?.email ?? '(guest)'}`);
         console.log(`    Customer name : ${session.customer_details?.name  ?? '(guest)'}`);
+        
+        const shipping = session.shipping_details?.address;
+        if (shipping) {
+          console.log(`    Shipping to   : ${shipping.city}, ${shipping.country}`);
+        }
 
         // ── Fetch line items from Stripe so we can store them ─────────────────
         // stripe.checkout.sessions.listLineItems returns the items exactly as
@@ -381,6 +387,12 @@ app.post('/api/create-checkout-session', checkoutLimiter, validate(checkoutSchem
       payment_method_types: ['card'],
       line_items:           lineItems,
       mode:                 'payment',
+      shipping_address_collection: {
+        allowed_countries: ['US', 'CA', 'GB', 'AU', 'FR', 'DE', 'JP', 'LY', 'AE', 'SA', 'EG', 'QA'],
+      },
+      phone_number_collection: {
+        enabled: true,
+      },
       // {CHECKOUT_SESSION_ID} is filled by Stripe — lets the success page
       // call /api/order-status?session_id=cs_… to confirm server-side.
       success_url: `${frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
