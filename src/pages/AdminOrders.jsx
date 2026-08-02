@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import AdminNav from '../components/AdminNav.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -287,7 +287,7 @@ export default function AdminOrders() {
                   const isExpanded = expandedOrderId === order.id;
 
                   return (
-                    <React.Fragment key={order.id}>
+                    <Fragment key={order.id}>
                       <tr 
                         className={`hover:bg-white/5 transition-colors cursor-pointer ${isExpanded ? 'bg-white/5' : ''}`}
                         onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
@@ -399,7 +399,7 @@ export default function AdminOrders() {
                           </td>
                         </tr>
                       )}
-                    </React.Fragment>
+                    </Fragment>
                   );
                 })}
               </tbody>
