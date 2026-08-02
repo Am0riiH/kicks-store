@@ -365,9 +365,13 @@ export default function Home() {
 
       {/* ---------------- SCROLL 1 : shoe left / copy right ---------------- */}
       {/* On mobile (Option A): shoe stays centered, text sinks to bottom half */}
-      <section ref={scroll1Ref} className="relative z-10 flex min-h-screen items-end sm:items-center px-6 sm:px-16 pb-16 sm:pb-0">
+      {/* max-sm:overflow-x-clip contains the copy block's -mr-4 breakout plus GSAP's
+          pre-animation translateX(40px), which would otherwise widen the page's
+          horizontal scroll area on mobile. `clip` (not `hidden`) is deliberate: it
+          does not create a scroll container, so ScrollTrigger is unaffected. */}
+      <section ref={scroll1Ref} className="relative z-10 flex min-h-screen items-end sm:items-center px-6 sm:px-16 pb-16 sm:pb-0 max-sm:overflow-x-clip">
         <div
-          className="scroll-text-mobile sm:mt-0 w-full max-w-md mx-auto sm:mx-0 sm:ml-auto"
+          className="scroll-text-mobile sm:mt-0 w-4/5 sm:w-full max-w-md ml-auto -mr-4 sm:mr-0 sm:mx-0 sm:ml-auto max-sm:text-right"
           ref={text1Ref}
           style={{ opacity: 0, transform: 'translateX(40px)' }}
         >
@@ -377,7 +381,10 @@ export default function Home() {
             <br />
             Colorway
           </h2>
-          <p className="mt-5 text-sm sm:text-base leading-relaxed text-smoke">
+          {/* Label + heading inherit max-sm:text-right from the wrapper so they sit flush
+              to the block's right edge; the paragraph opts back out — right-aligned body
+              copy has a ragged left edge that hurts readability. */}
+          <p className="mt-5 text-sm sm:text-base leading-relaxed text-smoke max-sm:text-left">
             The Air Jordan 1 Retro High rewrote what a basketball shoe could mean off the court.
             Full-grain leather upper, that unmistakable wings logo, and the block colorway
             that started the entire sneaker culture movement.
