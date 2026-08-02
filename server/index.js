@@ -27,6 +27,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const crypto  = require('node:crypto');
 const { z } = require('zod');
 const helmet  = require('helmet');
 const cors    = require('cors');
@@ -493,6 +494,45 @@ app.patch('/api/admin/orders/:id/status', (req, res) => {
 
     return res.json({ success: true, status });
 
+});
+
+// ─── GET /api/admin/upload-signature ──────────────────────────────────────────
+// Issues a short-lived Cloudinary upload signature so the browser can upload a
+// product image DIRECTLY to Cloudinary without the image passing through this
+// server (which would blow past express.json()'s 100kb body limit).
+//
+// Signed rather than using an unsigned preset: an unsigned preset name shipped
+// in the public JS bundle grants anyone write access to the Cloudinary account.
+// Here the API secret never leaves the server, and this route sits behind the
+// admin Basic Auth + rate limiter applied at `app.use('/api/admin/', …)` above.
+const CLOUDINARY_FOLDER = 'products';
+
+app.get('/api/admin/upload-signature', (req, res) => {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey    = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+  // Degrade gracefully: the admin form falls back to pasting an image URL.
+  if (!cloudName || !apiKey || !apiSecret) {
+    return res.status(503).json({
+      error: 'Image upload is not configured. Set CLOUDINARY_CLOUD_NAME, ' +
+             'CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET on the server, ' +
+             'or paste an image URL instead.'
+    });
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  // Cloudinary's algorithm: the params being signed, sorted alphabetically by
+  // key, joined as k=v&k=v, with the API secret appended, then SHA-1 hex.
+  const paramsToSign = { folder: CLOUDINARY_FOLDER, timestamp };
+  const toSign = Object.keys(paramsToSign)
+    .sort()
+    .map((k) => `${k}=${paramsToSign[k]}`)
+    .join('&');
+  const signature = crypto.createHash('sha1').update(toSign + apiSecret).digest('hex');
+
+  return res.json({ cloudName, apiKey, timestamp, signature, folder: CLOUDINARY_FOLDER });
 });
 
 // ─── GET /api/admin/products ──────────────────────────────────────────────────

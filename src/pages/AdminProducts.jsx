@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import AdminNav from '../components/AdminNav.jsx';
+import useImageUpload from '../hooks/useImageUpload.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -144,6 +145,16 @@ export default function AdminProducts() {
     id: '', name: '', colorway: '', category: '', price: '', sku: '', tag: '', image: ''
   });
 
+  const fileInputRef = useRef(null);
+  const {
+    upload: uploadImage,
+    reset: resetUpload,
+    status: uploadStatus,
+    error: uploadError,
+    previewUrl: uploadPreview,
+  } = useImageUpload(authHeader);
+  const isUploading = uploadStatus === 'compressing' || uploadStatus === 'uploading';
+
   useEffect(() => {
     let meta = document.querySelector('meta[name="robots"]');
     if (!meta) {
@@ -225,6 +236,24 @@ export default function AdminProducts() {
       });
     }
     setIsFormOpen(true);
+  };
+
+  /* Uploading writes the resulting Cloudinary URL into formData.image, so the
+     existing URL field stays the single source of truth and handleFormSubmit
+     below is untouched — pasting a URL by hand still works exactly as before. */
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = await uploadImage(file);
+    if (url) setFormData((prev) => ({ ...prev, image: url }));
+    // Allow re-picking the same file after a failure.
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleImageRemove = () => {
+    resetUpload();
+    setFormData((prev) => ({ ...prev, image: '' }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleFormSubmit = (e) => {
@@ -420,16 +449,65 @@ export default function AdminProducts() {
                   <input type="text" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs text-smoke uppercase mb-1">Image URL</label>
+                  <label className="block text-xs text-smoke uppercase mb-1">Product Image</label>
+
+                  {/* accept="image/*" with NO capture attribute: capture would force the
+                      camera, while omitting it gives the gallery picker (iOS shows the
+                      Photo Library / Take Photo / Browse sheet). */}
+                  <div className="flex items-start gap-3">
+                    {(uploadPreview || formData.image) && (
+                      <img
+                        src={uploadPreview || formData.image}
+                        alt="Product preview"
+                        className="w-20 h-20 object-cover rounded border border-white/10 bg-white/5 shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        disabled={isUploading}
+                        aria-label="Choose product image from your device"
+                        className="block w-full text-xs text-smoke file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-xs file:uppercase file:tracking-wide file:bg-volt file:text-ink hover:file:bg-volt/90 file:cursor-pointer disabled:opacity-50"
+                      />
+                      {isUploading && (
+                        <p className="mt-2 text-xs text-volt uppercase tracking-wide">
+                          {uploadStatus === 'compressing' ? 'Resizing image…' : 'Uploading…'}
+                        </p>
+                      )}
+                      {uploadError && (
+                        <p role="alert" className="mt-2 text-xs text-red-400 leading-relaxed">
+                          {uploadError}
+                        </p>
+                      )}
+                      {(uploadPreview || formData.image) && !isUploading && (
+                        <button
+                          type="button"
+                          onClick={handleImageRemove}
+                          className="mt-2 text-xs text-smoke hover:text-white underline"
+                        >
+                          Remove image
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-smoke uppercase mb-1">
+                    Image URL <span className="normal-case text-white/30">(set by upload, or paste one)</span>
+                  </label>
                   <input required type="url" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
                 </div>
-                
+
                 <div className="flex gap-4 mt-6">
                   <button type="button" onClick={() => setIsFormOpen(false)} className="flex-1 py-2 border border-white/20 text-smoke rounded hover:bg-white/5 uppercase tracking-wide">
                     Close
                   </button>
-                  <button type="submit" className="flex-1 py-2 bg-volt text-ink rounded hover:bg-volt/90 uppercase tracking-wide">
-                    Save Product
+                  <button type="submit" disabled={isUploading} className="flex-1 py-2 bg-volt text-ink rounded hover:bg-volt/90 uppercase tracking-wide disabled:opacity-50 disabled:hover:bg-volt">
+                    {isUploading ? 'Uploading…' : 'Save Product'}
                   </button>
                 </div>
               </form>
