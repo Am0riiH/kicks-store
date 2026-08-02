@@ -145,6 +145,8 @@ export default function AdminProducts() {
     id: '', name: '', colorway: '', category: '', price: '', sku: '', tag: '', image: ''
   });
 
+  const [saveError, setSaveError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
   const {
     upload: uploadImage,
@@ -235,6 +237,8 @@ export default function AdminProducts() {
         id: '', name: '', colorway: '', category: 'Mid-Top', price: '', sku: '', tag: '', image: ''
       });
     }
+    setSaveError(null);
+    resetUpload();
     setIsFormOpen(true);
   };
 
@@ -256,8 +260,26 @@ export default function AdminProducts() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  /* Turns an API error body into something a human can act on. Zod validation
+     failures arrive as { error, details:[{path,message}] }, so the offending
+     field names are surfaced rather than a bare "Validation Error". */
+  const describeApiError = (body, status) => {
+    if (!body) return `Request failed (HTTP ${status}).`;
+    const issues = body.details;
+    if (Array.isArray(issues) && issues.length) {
+      const parts = issues.map((i) => {
+        const field = Array.isArray(i.path) ? i.path.join('.') : i.path;
+        return field ? `${field}: ${i.message}` : i.message;
+      });
+      return `${body.error || 'Validation error'} — ${parts.join('; ')}`;
+    }
+    return body.error || `Request failed (HTTP ${status}).`;
+  };
+
   const handleFormSubmit = (e) => {
     e.preventDefault();
+    setSaveError(null);
+    setIsSaving(true);
     const method = editingId ? 'PUT' : 'POST';
     const url = editingId ? `${API_BASE}/api/admin/products/${editingId}` : `${API_BASE}/api/admin/products`;
 
@@ -272,15 +294,24 @@ export default function AdminProducts() {
       },
       body: JSON.stringify(payload)
     })
-    .then(res => {
-      if (!res.ok) throw new Error('Failed to save product');
+    .then(async res => {
+      if (!res.ok) {
+        // Read the real reason from the API instead of collapsing every
+        // failure into one generic string.
+        const body = await res.json().catch(() => null);
+        throw new Error(describeApiError(body, res.status));
+      }
       return res.json();
     })
     .then(() => {
+      setIsSaving(false);
       setIsFormOpen(false);
       fetchProducts();
     })
-    .catch(err => alert('Error saving product: ' + err.message));
+    .catch(err => {
+      setIsSaving(false);
+      setSaveError(err.message);
+    });
   };
 
   const handleDelete = (id) => {
@@ -502,12 +533,18 @@ export default function AdminProducts() {
                   <input required type="url" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
                 </div>
 
+                {saveError && (
+                  <div role="alert" className="mt-4 rounded border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs leading-relaxed text-red-400">
+                    {saveError}
+                  </div>
+                )}
+
                 <div className="flex gap-4 mt-6">
                   <button type="button" onClick={() => setIsFormOpen(false)} className="flex-1 py-2 border border-white/20 text-smoke rounded hover:bg-white/5 uppercase tracking-wide">
                     Close
                   </button>
-                  <button type="submit" disabled={isUploading} className="flex-1 py-2 bg-volt text-ink rounded hover:bg-volt/90 uppercase tracking-wide disabled:opacity-50 disabled:hover:bg-volt">
-                    {isUploading ? 'Uploading…' : 'Save Product'}
+                  <button type="submit" disabled={isUploading || isSaving} className="flex-1 py-2 bg-volt text-ink rounded hover:bg-volt/90 uppercase tracking-wide disabled:opacity-50 disabled:hover:bg-volt">
+                    {isUploading ? 'Uploading…' : isSaving ? 'Saving…' : 'Save Product'}
                   </button>
                 </div>
               </form>

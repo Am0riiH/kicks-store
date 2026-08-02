@@ -198,6 +198,13 @@ async function init() {
   _persist();
 }
 
+/* sql.js accepts null but throws on undefined ("Wrong API use : tried to bind a
+   value of an unknown type"). Every positional bind goes through this so an
+   absent field surfaces as a real SQLite constraint error instead. */
+function _bind(value) {
+  return value === undefined ? null : value;
+}
+
 // ── Disk persistence ──────────────────────────────────────────────────────────
 // sql.js keeps the DB in memory. After every write we export it and write
 // the binary to disk so data survives process restarts.
@@ -358,8 +365,14 @@ module.exports = {
       `INSERT INTO products (id, name, colorway, category, price, sku, tag, image, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        data.id, data.name, data.colorway, data.category, data.price,
-        data.sku, data.tag, data.image, new Date().toISOString()
+        // sql.js cannot bind `undefined` — it throws "Wrong API use: tried to
+        // bind a value of an unknown type" before SQLite ever sees the row.
+        // Coercing to null lets the real constraint speak instead, so a genuinely
+        // missing NOT NULL field reports "NOT NULL constraint failed: products.sku"
+        // rather than an opaque binding error.
+        _bind(data.id), _bind(data.name), _bind(data.colorway), _bind(data.category),
+        _bind(data.price), _bind(data.sku), _bind(data.tag), _bind(data.image),
+        new Date().toISOString()
       ]
     );
     _persist();
@@ -368,18 +381,31 @@ module.exports = {
 
   updateProduct(id, data) {
     if (!_db) throw new Error('DB not initialised');
+
+    // The PUT route validates with productSchema.partial(), so any field may be
+    // absent. Merge onto the stored row first — otherwise a legitimate partial
+    // update (say, price only) would bind undefined for every other column and
+    // blow up, or blank out data that the caller never intended to touch.
+    const existing = this.getProduct(id);
+    if (!existing) return false;
+
+    const merged = { ...existing };
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) merged[key] = value;
+    }
+
     const stmt = _db.prepare(`
-      UPDATE products 
+      UPDATE products
       SET name = ?, colorway = ?, category = ?, price = ?, sku = ?, tag = ?, image = ?
       WHERE id = ?
     `);
     stmt.bind([
-      data.name, data.colorway, data.category, data.price,
-      data.sku, data.tag, data.image, id
+      _bind(merged.name), _bind(merged.colorway), _bind(merged.category), _bind(merged.price),
+      _bind(merged.sku), _bind(merged.tag), _bind(merged.image), id
     ]);
     stmt.step();
     stmt.free();
-    
+
     const modified = _db.exec('SELECT changes() AS changed')[0].values[0][0];
     if (modified > 0) {
       _persist();

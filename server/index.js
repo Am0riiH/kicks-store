@@ -296,7 +296,13 @@ const checkoutSchema = z.object({
   })).min(1)
 });
 
+/* `id` and `category` are NOT NULL columns in the products table. They were
+   missing here, and because validate() reassigns req.body to the parsed result
+   and Zod strips unknown keys, they were silently dropped before reaching the
+   INSERT — which is what made every product save fail. */
 const productSchema = z.object({
+  id: z.string().min(1),
+  category: z.string().min(1),
   name: z.string().min(1),
   price: z.number().positive(),
   description: z.string().optional(),
@@ -541,16 +547,29 @@ app.get('/api/admin/products', (req, res) => {
 });
 
 // ─── POST /api/admin/products ─────────────────────────────────────────────────
+// The DB calls are wrapped so a driver/constraint failure returns JSON. Without
+// this, the error escapes to Express's default handler, which replies with an
+// HTML error page — unparseable by the admin UI and effectively undiagnosable.
 app.post('/api/admin/products', validate(productSchema), (req, res) => {
-  const product = db.createProduct(req.body);
-  return res.status(201).json({ product });
+  try {
+    const product = db.createProduct(req.body);
+    return res.status(201).json({ product });
+  } catch (err) {
+    console.error('Failed to create product:', err);
+    return res.status(500).json({ error: `Could not save product: ${err.message}` });
+  }
 });
 
 // ─── PUT /api/admin/products/:id ──────────────────────────────────────────────
 app.put('/api/admin/products/:id', validate(productSchema.partial()), (req, res) => {
-  const updated = db.updateProduct(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ error: 'Not found' });
-  return res.json({ success: true });
+  try {
+    const updated = db.updateProduct(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Product not found' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to update product:', err);
+    return res.status(500).json({ error: `Could not update product: ${err.message}` });
+  }
 });
 
 // ─── DELETE /api/admin/products/:id ───────────────────────────────────────────
