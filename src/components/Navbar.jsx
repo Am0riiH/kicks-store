@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext.jsx';
 import ProductCard from './ProductCard.jsx';
+import { thumbUrl } from '../lib/imageUrl.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -419,7 +420,7 @@ function CartDrawer() {
               {items.map((item) => (
                 <li key={item.variant_id || item.id} className="flex gap-4 border-b border-ink/10 pb-5">
                   <img
-                    src={`${item.image}&w=80`}
+                    src={thumbUrl(item.image, 80)}
                     alt={item.name}
                     className="h-16 w-16 rounded-lg object-cover"
                   />
