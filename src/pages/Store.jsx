@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard.jsx';
 import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function Store() {
-  useDocumentTitle('Shop All Sneakers | Drop Site');
+  const [searchParams] = useSearchParams();
+  // ?tag=New / ?tag=Limited — the footer's "New drops" and "Limited" links.
+  // Matched case-insensitively; an unknown or absent tag falls back to the
+  // full catalog, so a bad URL degrades to the default view rather than an
+  // empty page.
+  const activeTag = (searchParams.get('tag') || '').trim();
+
+  useDocumentTitle(activeTag ? `${activeTag} | Drop Site` : 'Shop All Sneakers | Drop Site');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,17 +29,32 @@ export default function Store() {
         setLoading(false);
       });
   }, []);
+
+  const visibleProducts = activeTag
+    ? products.filter((p) => (p.tag || '').toLowerCase() === activeTag.toLowerCase())
+    : products;
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10">
       <div className="mb-12 flex flex-col gap-2 border-b border-white/10 pb-8">
-        <span className="font-mono text-xs uppercase tracking-widest text-volt">Full Catalog</span>
+        <span className="font-mono text-xs uppercase tracking-widest text-volt">
+          {activeTag ? `Tagged “${activeTag}”` : 'Full Catalog'}
+        </span>
         <h1 className="font-display text-5xl uppercase leading-none text-bone sm:text-7xl">
-          The Store
+          {activeTag || 'The Store'}
         </h1>
         <p className="max-w-xl text-smoke">
           Every silhouette currently in rotation. New drops land weekly — check back or turn on
           restock alerts.
         </p>
+        {activeTag && (
+          <Link
+            to="/store"
+            className="mt-2 self-start font-mono text-xs uppercase tracking-widest text-volt hover:underline"
+          >
+            ← Clear filter
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -45,11 +68,17 @@ export default function Store() {
             </div>
           ))
         ) : (
-          products.map((p) => (
+          visibleProducts.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))
         )}
       </div>
+
+      {!loading && visibleProducts.length === 0 && (
+        <p className="py-20 text-center font-mono text-sm uppercase tracking-widest text-smoke">
+          {activeTag ? `Nothing tagged “${activeTag}” right now.` : 'No products yet.'}
+        </p>
+      )}
     </div>
   );
 }

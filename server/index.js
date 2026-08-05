@@ -257,6 +257,13 @@ const adminLoginLimiter = rateLimit({
   message: { error: 'Too many failed login attempts, please try again later.' }
 });
 
+// 4. Newsletter Limiter (5 signups per 15 min per IP)
+const newsletterLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many signup attempts, please try again later.' }
+});
+
 // Admin Auth Middleware
 function adminAuth(req, res, next) {
   const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
@@ -310,6 +317,13 @@ const productSchema = z.object({
   image: z.string().url().or(z.literal('')).optional(),
   tag: z.string().optional(),
   sku: z.string().optional()
+});
+
+/* validate() reassigns req.body to the parsed result and Zod strips unknown
+   keys, so every field the handler reads must be declared here — the omission
+   of exactly that is what silently broke product saves. */
+const newsletterSchema = z.object({
+  email: z.string().trim().min(1).email()
 });
 
 const variantSchema = z.object({
@@ -444,6 +458,45 @@ app.get('/api/order-status', (req, res) => {
   }
 
   res.json({ found: true, ...order });
+});
+
+// ─── POST /api/newsletter/subscribe ───────────────────────────────────────────
+// Public endpoint for the footer signup form.
+//
+// Two-stage on purpose: SQLite is the immediate record (so the signup is never
+// lost and duplicates are cheap to detect), and the Resend audience is what
+// makes the list survive a redeploy, since data.db is ephemeral on Render.
+// A Resend failure must therefore NEVER fail a request whose subscriber is
+// already persisted.
+app.post('/api/newsletter/subscribe', newsletterLimiter, validate(newsletterSchema), async (req, res) => {
+  // Named subscriberEmail, not email — `email` is the Resend module import.
+  const subscriberEmail = req.body.email;
+
+  let created;
+  try {
+    ({ created } = db.addSubscriber(subscriberEmail));
+  } catch (err) {
+    console.error('Failed to save newsletter subscriber:', err);
+    return res.status(500).json({ error: `Could not save subscription: ${err.message}` });
+  }
+
+  // Only sync genuinely new addresses — re-adding an existing contact on every
+  // repeat submission is pointless traffic.
+  let synced = false;
+  if (created) {
+    try {
+      ({ added: synced } = await email.addNewsletterContact(subscriberEmail));
+    } catch (err) {
+      // Logged, not surfaced: the subscriber is safely in the DB either way.
+      console.error('Newsletter contact sync failed (subscriber still saved):', err.message);
+    }
+  }
+
+  return res.json({
+    ok: true,
+    alreadySubscribed: !created,
+    synced,
+  });
 });
 
 // ─── GET /api/products ────────────────────────────────────────────────────────

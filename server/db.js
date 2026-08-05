@@ -117,6 +117,17 @@ async function init() {
     );
   `);
 
+  // Newsletter subscribers. COLLATE NOCASE on the UNIQUE email means
+  // "A@Example.com" and "a@example.com" are the same subscriber, so duplicate
+  // signups are caught by the constraint rather than by ad-hoc normalising.
+  _db.run(`
+    CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      email      TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      created_at TEXT NOT NULL
+    );
+  `);
+
   // Create product_variants table
   _db.run(`
     CREATE TABLE IF NOT EXISTS product_variants (
@@ -434,6 +445,45 @@ module.exports = {
       return true;
     }
     return false;
+  },
+
+  // ── Newsletter API ───────────────────────────────────────────────────────────
+
+  /**
+   * Record a newsletter signup.
+   *
+   * Duplicates are a normal, expected outcome — people re-submit forms — so the
+   * UNIQUE constraint is caught and reported rather than thrown. The caller can
+   * then answer "you're already on the list" instead of showing an error.
+   *
+   * @param {string} email
+   * @returns {{ created: boolean }}
+   */
+  addSubscriber(email) {
+    if (!_db) throw new Error('DB not initialised');
+    try {
+      _db.run(
+        'INSERT INTO newsletter_subscribers (email, created_at) VALUES (?, ?)',
+        [_bind(email), new Date().toISOString()]
+      );
+    } catch (err) {
+      if (/UNIQUE constraint failed/i.test(err.message)) return { created: false };
+      throw err;
+    }
+    _persist();
+    return { created: true };
+  },
+
+  getSubscribers() {
+    if (!_db) throw new Error('DB not initialised');
+    const result = _db.exec('SELECT * FROM newsletter_subscribers ORDER BY created_at DESC');
+    if (!result.length) return [];
+    const { columns, values } = result[0];
+    return values.map(row => {
+      const obj = {};
+      columns.forEach((col, i) => { obj[col] = row[i]; });
+      return obj;
+    });
   },
 
   // ── Product Variants API ───────────────────────────────────────────────────

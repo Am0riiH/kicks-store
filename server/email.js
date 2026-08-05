@@ -299,4 +299,46 @@ async function sendOrderConfirmation(opts) {
   console.log(`    📧  Confirmation email sent → ${opts.customerEmail} (id: ${data?.id})`);
 }
 
-module.exports = { sendOrderConfirmation };
+/**
+ * Add an address to the Resend audience backing the newsletter.
+ *
+ * Follows the same contract as sendOrderConfirmation: if the integration is not
+ * configured it warns and returns rather than throwing, so a signup is never
+ * lost just because Resend is unset. The subscriber is already persisted in
+ * SQLite by the time this runs — this call is what makes the list survive a
+ * redeploy, since the DB file itself is ephemeral on Render.
+ *
+ * @param {string} email
+ * @returns {Promise<{ added: boolean, reason?: string }>}
+ */
+async function addNewsletterContact(email) {
+  const apiKey     = process.env.RESEND_API_KEY;
+  const audienceId = process.env.RESEND_AUDIENCE_ID;
+
+  if (!apiKey) {
+    console.warn('    ⚠️  RESEND_API_KEY not set — subscriber saved locally only.');
+    return { added: false, reason: 'no-api-key' };
+  }
+  if (!audienceId) {
+    console.warn('    ⚠️  RESEND_AUDIENCE_ID not set — subscriber saved locally only.');
+    console.warn('       Create an audience at https://resend.com/audiences and set');
+    console.warn('       RESEND_AUDIENCE_ID in server/.env to sync the mailing list.');
+    return { added: false, reason: 'no-audience' };
+  }
+
+  const resend = new Resend(apiKey);
+  const { data, error } = await resend.contacts.create({
+    email,
+    audienceId,
+    unsubscribed: false,
+  });
+
+  if (error) {
+    throw new Error(`Resend contacts error: ${error.message || JSON.stringify(error)}`);
+  }
+
+  console.log(`    📬  Newsletter contact synced → ${email} (id: ${data?.id})`);
+  return { added: true };
+}
+
+module.exports = { sendOrderConfirmation, addNewsletterContact };
