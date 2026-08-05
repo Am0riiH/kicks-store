@@ -61,15 +61,28 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5173',
 ];
 if (process.env.FRONTEND_URL) {
-  ALLOWED_ORIGINS.push(process.env.FRONTEND_URL);
+  // Browsers send Origin WITHOUT a trailing slash, so a FRONTEND_URL set as
+  // "https://site.vercel.app/" would silently fail every check. Normalise it.
+  ALLOWED_ORIGINS.push(process.env.FRONTEND_URL.replace(/\/+$/, ''));
 }
+
+// Vercel mints a unique origin for every branch/PR preview deploy, which no
+// fixed allow-list can enumerate. Permitting the *.vercel.app suffix keeps
+// previews working; the admin API is still behind auth, so this only widens
+// which browser origins may call the public read endpoints.
+const PREVIEW_ORIGIN = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);   // curl / Postman / Stripe CLI
       if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-      callback(new Error(`CORS: origin "${origin}" not allowed`));
+      if (PREVIEW_ORIGIN.test(origin)) return callback(null, true);
+      // Tagged so the global error handler can turn this into a 403 JSON
+      // response rather than Express's default HTML 500.
+      const err = new Error(`CORS: origin "${origin}" not allowed`);
+      err.status = 403;
+      callback(err);
     },
     methods:      ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'stripe-signature', 'Authorization'],
@@ -249,12 +262,28 @@ const checkoutLimiter = rateLimit({
   message: { error: 'Too many checkout attempts, please try again later.' }
 });
 
-// 3. Admin Login Limiter (5 failed attempts per 15 min)
+// 3. Admin Login Limiter (5 failed AUTH attempts per 15 min)
+//
+// skipSuccessfulRequests alone treats every response >= 400 as a failed login,
+// so a validation error while editing a product used to burn the same 5-strike
+// budget as a wrong password — five typos locked the admin out for 15 minutes.
+// requestWasSuccessful narrows "failure" to exactly the 401 that adminAuth
+// emits, so only genuine auth failures count toward a lockout.
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  skipSuccessfulRequests: true, // Only count failed logins (401s)
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: (req, res) => res.statusCode !== 401,
   message: { error: 'Too many failed login attempts, please try again later.' }
+});
+
+// 4. Admin API Limiter — generous ceiling for ordinary authenticated admin work
+// (product edits, order status changes), so normal usage and mistakes never
+// approach the strict auth limiter above.
+const adminApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many requests, please try again later.' }
 });
 
 // 4. Newsletter Limiter (5 signups per 15 min per IP)
@@ -287,18 +316,28 @@ function adminAuth(req, res, next) {
 // Apply general API limiter to all API routes
 app.use('/api/', generalApiLimiter);
 
-// Apply admin auth and rate limiter to all admin routes
-app.use('/api/admin/', adminLoginLimiter, adminAuth);
+// Apply admin auth and rate limiters to all admin routes. Order matters: the
+// generous API ceiling first, then the strict auth limiter (which now only
+// counts 401s), then the auth check itself.
+app.use('/api/admin/', adminApiLimiter, adminLoginLimiter, adminAuth);
 
 
 
 // ─── ZOD SCHEMAS ─────────────────────────────────────────────────────────────
+/* `price` is deliberately ABSENT. The charged amount is looked up from the
+   products table in the handler below — a client-supplied price was previously
+   passed straight to Stripe, letting anyone buy a $180 shoe for $0.50.
+   validate() reassigns req.body to the parsed result and Zod strips unknown
+   keys, so a price sent by a client is silently discarded before it can be read.
+
+   `variant_id` is REQUIRED, not optional: it is the only link back to the
+   authoritative price, so an item without one cannot be priced safely. Both
+   add-to-cart paths always set it (ProductCard.jsx, ProductDetail.jsx). */
 const checkoutSchema = z.object({
   items: z.array(z.object({
     name: z.string().min(1),
-    price: z.number().positive(),
     quantity: z.number().int().positive(),
-    variant_id: z.union([z.string(), z.number()]).optional(),
+    variant_id: z.union([z.string(), z.number()]),
     image: z.string().url().optional()
   })).min(1)
 });
@@ -359,42 +398,46 @@ app.post('/api/create-checkout-session', checkoutLimiter, validate(checkoutSchem
 
 
 
-    // Server-side validation: Check stock BEFORE creating Stripe session
+    // Server-side validation: resolve the authoritative price AND check stock
+    // BEFORE creating the Stripe session. The price charged comes from the
+    // products table, never from the request body.
+    const priced = [];
     for (const item of items) {
-      if (item.variant_id) {
-        const variant = db.getVariant(item.variant_id);
-        console.log(`[VALIDATION DEBUG] Variant:`, variant, `Item qty:`, item.quantity);
-        if (!variant) {
-          return res.status(400).json({ error: `Variant ${item.name} is no longer available.` });
-        }
-        if (variant.quantity < item.quantity) {
-          return res.status(400).json({ error: `Only ${variant.quantity} units of ${item.name} (${variant.size}) are available.` });
-        }
+      const variant = db.getVariant(item.variant_id);
+      if (!variant) {
+        return res.status(400).json({ error: `Variant ${item.name} is no longer available.` });
       }
+      if (variant.quantity < item.quantity) {
+        return res.status(400).json({ error: `Only ${variant.quantity} units of ${item.name} (${variant.size}) are available.` });
+      }
+
+      // variant -> product -> price. If the owning product cannot be resolved
+      // there is no trustworthy price, so the request is refused outright
+      // rather than falling back to anything the client sent.
+      const product = db.getProduct(variant.product_id);
+      if (!product || typeof product.price !== 'number') {
+        return res.status(400).json({ error: `Pricing unavailable for ${item.name}. Please try again.` });
+      }
+
+      priced.push({ item, unitPrice: product.price });
     }
 
-    const lineItems = items.map((item) => {
-      if (!item.name || typeof item.price !== 'number' || !item.quantity) {
-        throw new Error(`Invalid item: ${JSON.stringify(item)}`);
-      }
+    const lineItems = priced.map(({ item, unitPrice }) => {
       const productData = { name: item.name };
       if (item.image && /^https?:\/\//.test(item.image)) {
         productData.images = [item.image];
       }
       
-      // Store the variant_id in Stripe product metadata so we can access it during the webhook
-      if (item.variant_id) {
-        console.log(`    👉  Adding variant_id to product_data.metadata: ${item.variant_id}`);
-        productData.metadata = { variant_id: String(item.variant_id) };
-      } else {
-        console.warn(`    ⚠️  Missing variant_id for item in cart: ${item.name}`);
-      }
+      // Store the variant_id in Stripe product metadata so the webhook can
+      // decrement the right variant. Guaranteed present — the schema requires it.
+      productData.metadata = { variant_id: String(item.variant_id) };
 
       return {
         price_data: {
           currency:     'usd',
           product_data: productData,
-          unit_amount:  Math.round(item.price * 100),
+          // From the DB, never the request body — see checkoutSchema above.
+          unit_amount:  Math.round(unitPrice * 100),
         },
         quantity: item.quantity,
       };
@@ -664,6 +707,41 @@ app.delete('/api/admin/variants/:id', (req, res) => {
 
 // ─── 404 fallback ─────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
+
+// ─── Global error handler ─────────────────────────────────────────────────────
+// MUST be last, and MUST take four arguments — Express identifies error
+// handlers by arity, so dropping `_next` silently turns this into normal
+// middleware that never runs.
+//
+// Without this, body-parser and CORS failures fall through to Express's default
+// handler, which replies with an HTML page the frontend cannot parse (and which
+// includes a stack trace outside production). Everything here answers JSON, and
+// the response body carries only a human-readable message — the full error goes
+// to the server log instead.
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  console.error('Unhandled error:', err);
+
+  // Already sent something? Hand back to Express to close the connection.
+  if (res.headersSent) return;
+
+  let status = 500;
+  let message = 'Internal server error.';
+
+  if (err.type === 'entity.too.large' || err.status === 413) {
+    status = 413;
+    message = 'Request body is too large.';
+  } else if (err instanceof SyntaxError && 'body' in err) {
+    // body-parser throws this for malformed JSON payloads.
+    status = 400;
+    message = 'Malformed JSON in request body.';
+  } else if (err.status === 403 || String(err.message).startsWith('CORS:')) {
+    status = 403;
+    message = 'Origin not allowed.';
+  }
+
+  res.status(status).json({ error: message });
+});
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 // db.init() is async (sql.js loads a WASM binary), so we wrap startup.
