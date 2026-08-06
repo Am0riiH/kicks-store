@@ -21,7 +21,9 @@ export default function ProductCard({ product, featured = false }) {
     sizesForColor,
     isSoldOut,
     isSelectedVariantOut
-  } = useProductVariants(product.id);
+    // /api/products embeds variants, so each card reuses them instead of
+    // firing its own request — this is what removes the N+1 on /store.
+  } = useProductVariants(product.id, product.variants);
 
   const handleAdd = (e) => {
     e.stopPropagation();

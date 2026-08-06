@@ -25,7 +25,10 @@ export default function ProductDetail() {
     isSoldOut,
     isSelectedVariantOut,
     loading: loadingVariants
-  } = useProductVariants(id);
+    // /api/products/:id embeds variants. `null` while the product is still
+    // loading tells the hook to wait rather than fire a request it would
+    // immediately discard — see the three-state contract in the hook.
+  } = useProductVariants(id, product ? (product.variants || []) : null);
 
   useEffect(() => {
     setLoadingProduct(true);

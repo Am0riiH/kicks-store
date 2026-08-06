@@ -481,10 +481,17 @@ app.post('/api/create-checkout-session', checkoutLimiter, validate(checkoutSchem
 //   session_id   — the Stripe checkout session ID (cs_…)
 //
 // Responses:
-//   200  { found: true,  id, status, amount_total, currency,
-//          customer_email, customer_name, items, created_at }
+//   200  { found: true, id, amount_total, currency, customer_name,
+//          customer_email, items }
 //   404  { found: false }
 //   400  { error: 'session_id query param is required' }
+//
+// The response is an explicit whitelist, NOT the whole order row. A session ID
+// travels in the redirect URL — it lands in browser history, referrer headers
+// and server logs — so anyone holding one could previously read the buyer's
+// phone number and full postal address. These six fields are exactly what
+// CheckoutSuccess.jsx renders; shipping_*, phone, fulfillment_status and
+// created_at are deliberately withheld.
 app.get('/api/order-status', (req, res) => {
   const { session_id } = req.query;
 
@@ -500,7 +507,15 @@ app.get('/api/order-status', (req, res) => {
     return res.status(404).json({ found: false });
   }
 
-  res.json({ found: true, ...order });
+  res.json({
+    found:          true,
+    id:             order.id,
+    amount_total:   order.amount_total,
+    currency:       order.currency,
+    customer_name:  order.customer_name,
+    customer_email: order.customer_email,
+    items:          order.items,
+  });
 });
 
 // ─── POST /api/newsletter/subscribe ───────────────────────────────────────────
@@ -546,7 +561,9 @@ app.post('/api/newsletter/subscribe', newsletterLimiter, validate(newsletterSche
 // Public endpoint for the storefront to fetch all products
 app.get('/api/products', (req, res) => {
   try {
-    const products = db.getAllProducts();
+    // Variants are embedded so the storefront needs ONE request, not one per
+    // product card. Costs two DB queries here regardless of product count.
+    const products = db.getAllProductsWithVariants();
     res.json({ products });
   } catch (err) {
     console.error('Failed to fetch products:', err);
@@ -562,7 +579,9 @@ app.get('/api/products/:id', (req, res) => {
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
-    res.json({ product });
+    // Embedded for the same reason as the list endpoint — the detail page can
+    // then render sizes/colours without a second round trip.
+    res.json({ product: { ...product, variants: db.getVariantsForProduct(product.id) } });
   } catch (err) {
     console.error(`Failed to fetch product ${req.params.id}:`, err);
     res.status(500).json({ error: 'Internal server error' });
@@ -718,7 +737,6 @@ app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 // includes a stack trace outside production). Everything here answers JSON, and
 // the response body carries only a human-readable message — the full error goes
 // to the server log instead.
-// eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
   console.error('Unhandled error:', err);
 

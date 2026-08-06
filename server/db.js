@@ -501,6 +501,33 @@ module.exports = {
     return variants;
   },
 
+  /**
+   * Every product with its variants embedded, in TWO queries total rather than
+   * 1-per-product. The storefront previously fetched /api/products and then one
+   * /api/products/:id/variants per card, so a 8-product page cost 9 round trips.
+   *
+   * @returns {Array} products, each with a `variants` array (possibly empty)
+   */
+  getAllProductsWithVariants() {
+    if (!_db) throw new Error('DB not initialised — call db.init() first');
+    const products = this.getAllProducts();
+    if (!products.length) return products;
+
+    const byProduct = new Map();
+    const result = _db.exec('SELECT * FROM product_variants ORDER BY size ASC');
+    if (result.length) {
+      const { columns, values } = result[0];
+      for (const row of values) {
+        const variant = {};
+        columns.forEach((col, i) => { variant[col] = row[i]; });
+        if (!byProduct.has(variant.product_id)) byProduct.set(variant.product_id, []);
+        byProduct.get(variant.product_id).push(variant);
+      }
+    }
+
+    return products.map((p) => ({ ...p, variants: byProduct.get(p.id) || [] }));
+  },
+
   getVariant(id) {
     if (!_db) throw new Error('DB not initialised');
     const stmt = _db.prepare('SELECT * FROM product_variants WHERE id = ?');
