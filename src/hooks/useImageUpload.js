@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE } from '../lib/api.js';
 
 /* Raw file cap, checked BEFORE decoding — a modern phone photo is 3–8MB, so this
    leaves headroom while rejecting videos or absurd files outright. */

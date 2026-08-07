@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE } from '../lib/api.js';
 
 /* TODO: PLACEHOLDER SOCIAL LINKS — every href below is "#".
    Replace with the real profile URLs before launch, and add

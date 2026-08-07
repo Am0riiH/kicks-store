@@ -3,8 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext.jsx';
 import { useProductVariants } from '../hooks/useProductVariants.js';
 import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE } from '../lib/api.js';
 
 /* Module-level so the reference is stable across renders. useProductVariants
    lists the preloaded array in an effect dependency, so a fresh [] literal on

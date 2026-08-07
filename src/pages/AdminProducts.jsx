@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import AdminNav from '../components/AdminNav.jsx';
 import useImageUpload from '../hooks/useImageUpload.js';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE } from '../lib/api.js';
 
 function VariantsManager({ productId, authHeader }) {
   const [variants, setVariants] = useState([]);

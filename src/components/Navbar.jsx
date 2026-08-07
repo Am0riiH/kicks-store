@@ -3,8 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext.jsx';
 import ProductCard from './ProductCard.jsx';
 import { thumbUrl } from '../lib/imageUrl.js';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE } from '../lib/api.js';
 
 /* ---------------------------------------------------------
    Small inline icon set (no external icon lib needed)

@@ -6,10 +6,9 @@ import { useScene } from '../context/SceneContext.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import LoadingBar from '../components/LoadingBar.jsx';
 import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
+import { API_BASE } from '../lib/api.js';
 
 gsap.registerPlugin(ScrollTrigger);
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function Home() {
   useDocumentTitle('Sneakers | Limited Drops');
