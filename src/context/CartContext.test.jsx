@@ -167,6 +167,77 @@ describe('CartContext', () => {
     expect(result.current.total).toBe(0);
   });
 
+  it('opens the cart drawer when an item is added', () => {
+    const { result } = renderCartHook();
+    expect(result.current.isCartOpen).toBe(false);
+
+    act(() => {
+      result.current.addItem(makeProduct());
+    });
+
+    // The drawer opening is the only feedback that an add succeeded — ProductCard
+    // has no toast of its own.
+    expect(result.current.isCartOpen).toBe(true);
+  });
+
+  it('honours an explicit quantity on addItem', () => {
+    const { result } = renderCartHook();
+
+    act(() => {
+      result.current.addItem(makeProduct({ variant_id: 1 }), 3);
+    });
+
+    expect(result.current.items[0].qty).toBe(3);
+  });
+
+  it('clamps an explicit quantity to max_qty on a first add', () => {
+    const { result } = renderCartHook();
+
+    act(() => {
+      result.current.addItem(makeProduct({ variant_id: 1, max_qty: 2 }), 10);
+    });
+
+    expect(result.current.items[0].qty).toBe(2);
+  });
+
+  it('exposes the tax rate used for the displayed total', () => {
+    const { result } = renderCartHook();
+
+    expect(result.current.TAX_RATE).toBe(0.08);
+  });
+
+  it('tracks the search overlay independently of the cart drawer', () => {
+    const { result } = renderCartHook();
+    expect(result.current.isSearchOpen).toBe(false);
+
+    act(() => {
+      result.current.setSearchOpen(true);
+    });
+
+    expect(result.current.isSearchOpen).toBe(true);
+    expect(result.current.isCartOpen).toBe(false);
+  });
+
+  it('throws a clear error when useCart is called outside the provider', () => {
+    // React logs the thrown error; silence it so the run stays readable.
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(() => renderHook(() => useCart())).toThrow(
+      'useCart must be used inside CartProvider'
+    );
+
+    spy.mockRestore();
+  });
+
+  it('recovers from corrupt localStorage instead of crashing on mount', () => {
+    localStorage.setItem('cart', '{not valid json');
+
+    const { result } = renderCartHook();
+
+    expect(result.current.items).toEqual([]);
+    expect(result.current.total).toBe(0);
+  });
+
   it('persists state to localStorage and restores it on mount', () => {
     // 1. Render hook and add an item
     const { result: firstResult, unmount } = renderCartHook();
