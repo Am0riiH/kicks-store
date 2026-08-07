@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import AdminNav from '../components/AdminNav.jsx';
 import useImageUpload from '../hooks/useImageUpload.js';
-import { API_BASE } from '../lib/api.js';
+import { API_BASE, describeApiError } from '../lib/api.js';
 
 function VariantsManager({ productId, authHeader }) {
   const [variants, setVariants] = useState([]);
@@ -259,22 +259,6 @@ export default function AdminProducts() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  /* Turns an API error body into something a human can act on. Zod validation
-     failures arrive as { error, details:[{path,message}] }, so the offending
-     field names are surfaced rather than a bare "Validation Error". */
-  const describeApiError = (body, status) => {
-    if (!body) return `Request failed (HTTP ${status}).`;
-    const issues = body.details;
-    if (Array.isArray(issues) && issues.length) {
-      const parts = issues.map((i) => {
-        const field = Array.isArray(i.path) ? i.path.join('.') : i.path;
-        return field ? `${field}: ${i.message}` : i.message;
-      });
-      return `${body.error || 'Validation error'} — ${parts.join('; ')}`;
-    }
-    return body.error || `Request failed (HTTP ${status}).`;
-  };
-
   const handleFormSubmit = (e) => {
     e.preventDefault();
     setSaveError(null);
@@ -298,7 +282,10 @@ export default function AdminProducts() {
         // Read the real reason from the API instead of collapsing every
         // failure into one generic string.
         const body = await res.json().catch(() => null);
-        throw new Error(describeApiError(body, res.status));
+        // withSummary: the admin form has room for the "Validation Error — "
+        // prefix, and it tells the admin whether the failure was validation or
+        // something else. The newsletter form omits it.
+        throw new Error(describeApiError(body, res.status, { withSummary: true }));
       }
       return res.json();
     })

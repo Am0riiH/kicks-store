@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { API_BASE } from '../lib/api.js';
+import { API_BASE, describeApiError } from '../lib/api.js';
 
 /* TODO: PLACEHOLDER SOCIAL LINKS — every href below is "#".
    Replace with the real profile URLs before launch, and add
@@ -95,22 +95,6 @@ function NewsletterForm() {
   const [emailValue, setEmailValue] = useState('');
   const [status, setStatus] = useState('idle'); // idle | submitting | success | error
   const [message, setMessage] = useState(null);
-
-  /* Same shape as describeApiError in AdminProducts.jsx: surface the real API
-     message, and name the offending field when Zod reports details. */
-  const describeApiError = (body, httpStatus) => {
-    if (!body) return `Request failed (HTTP ${httpStatus}).`;
-    const issues = body.details;
-    if (Array.isArray(issues) && issues.length) {
-      return issues
-        .map((i) => {
-          const field = Array.isArray(i.path) ? i.path.join('.') : i.path;
-          return field ? `${field}: ${i.message}` : i.message;
-        })
-        .join('; ');
-    }
-    return body.error || `Request failed (HTTP ${httpStatus}).`;
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
