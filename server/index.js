@@ -248,10 +248,19 @@ app.use(express.json());
 
 const rateLimit = require('express-rate-limit');
 
+// Every limiter below is a module-level singleton keyed by IP, so an in-process
+// test suite shares one bucket and would lock itself out after 5 auth checks.
+// This escape hatch is deliberately double-gated: BOTH the test NODE_ENV and an
+// explicit opt-in are required, so a stray env var in production cannot silently
+// disable rate limiting. The dedicated rate-limit test file unsets the opt-in.
+const skipWhenTesting = () =>
+  process.env.NODE_ENV === 'test' && process.env.DISABLE_RATE_LIMIT === '1';
+
 // 1. General API Limiter (100 per 15 min)
 const generalApiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
+  skip: skipWhenTesting,
   message: { error: 'Too many requests, please try again later.' }
 });
 
@@ -259,6 +268,7 @@ const generalApiLimiter = rateLimit({
 const checkoutLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  skip: skipWhenTesting,
   message: { error: 'Too many checkout attempts, please try again later.' }
 });
 
@@ -274,6 +284,7 @@ const adminLoginLimiter = rateLimit({
   max: 5,
   skipSuccessfulRequests: true,
   requestWasSuccessful: (req, res) => res.statusCode !== 401,
+  skip: skipWhenTesting,
   message: { error: 'Too many failed login attempts, please try again later.' }
 });
 
@@ -283,6 +294,7 @@ const adminLoginLimiter = rateLimit({
 const adminApiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
+  skip: skipWhenTesting,
   message: { error: 'Too many requests, please try again later.' }
 });
 
@@ -290,6 +302,7 @@ const adminApiLimiter = rateLimit({
 const newsletterLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
+  skip: skipWhenTesting,
   message: { error: 'Too many signup attempts, please try again later.' }
 });
 
@@ -763,13 +776,13 @@ app.use((err, _req, res, _next) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 // db.init() is async (sql.js loads a WASM binary), so we wrap startup.
-(async () => {
+async function start() {
   const keyPrefix    = process.env.STRIPE_SECRET_KEY.slice(0, 12);
   const isTest       = process.env.STRIPE_SECRET_KEY.includes('_test_');
   const webhookReady = !!process.env.STRIPE_WEBHOOK_SECRET;
 
   console.log(`\n🚀  Air Jordan Store — checkout server starting on port ${PORT}`);
-  console.log(`    Stripe key    : ${keyPrefix}… (${isTest ? '✅ TEST mode' : '⚠️  LIVE mode — double-check this!'})`); 
+  console.log(`    Stripe key    : ${keyPrefix}… (${isTest ? '✅ TEST mode' : '⚠️  LIVE mode — double-check this!'})`);
   console.log(`    Webhook secret: ${webhookReady ? '✅ set' : '⚠️  not set — run: stripe listen --forward-to localhost:3001/api/webhook'}`);
 
   // Initialise the SQLite database (loads WASM, opens/creates data.db, runs migrations)
@@ -783,6 +796,16 @@ app.use((err, _req, res, _next) => {
       console.warn('    Real charges will be made. Confirm this is intentional.\n');
     }
   });
-})();
+}
+
+// Only bind a port when run directly (`node index.js`). Tests require this file
+// for its `app` export and drive it in-process via supertest — importing it must
+// not start a listener or race an un-awaited db.init().
+if (require.main === module) {
+  start();
+}
+
+module.exports = app;
+module.exports.start = start;
 
 
