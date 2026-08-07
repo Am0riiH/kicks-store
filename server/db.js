@@ -142,12 +142,7 @@ async function init() {
   `);
 
   // Seed products if empty
-  const countStmt = _db.prepare('SELECT count(*) as count FROM products');
-  countStmt.step();
-  const { count } = countStmt.getAsObject();
-  countStmt.free();
-
-  if (count === 0) {
+  if (_count('products') === 0) {
     console.log(`    Database      : seeding initial products`);
     const seedData = [
       { id: 'sk3-fire-red', name: 'Sneakers Retro 3', colorway: 'Fire Red', category: 'Mid-Top', price: 200, sku: 'SK3-MD-FRD-26', tag: 'New', image: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?w=800&q=80' },
@@ -167,40 +162,21 @@ async function init() {
     }
   }
 
-  // Check if we need to seed variants (either because it's a fresh DB or variants were missed)
-  const varCountStmt = _db.prepare('SELECT count(*) as count FROM product_variants');
-  varCountStmt.step();
-  const varCount = varCountStmt.getAsObject().count;
-  varCountStmt.free();
-
-  // Get current product count, because 'count' might be 0 from before we seeded products
-  const currentCountStmt = _db.prepare('SELECT count(*) as count FROM products');
-  currentCountStmt.step();
-  const currentProductCount = currentCountStmt.getAsObject().count;
-  currentCountStmt.free();
-
-  if (varCount === 0 && currentProductCount !== 0) {
-    // If variants are empty but we have products, seed default variants
+  // Seed variants when they are missing but products exist — either a fresh
+  // database, or one where the variant seed was skipped. Re-counting products
+  // matters: the count above was taken before the seed block ran.
+  if (_count('product_variants') === 0 && _count('products') !== 0) {
     console.log(`    Database      : seeding initial variants`);
-    const allProds = _db.exec('SELECT id, colorway FROM products');
-    if (allProds.length > 0) {
-      const { columns, values } = allProds[0];
-      const prodRows = values.map(row => {
-        const obj = {};
-        columns.forEach((col, i) => { obj[col] = row[i]; });
-        return obj;
-      });
 
-      const sizes = ['8', '9', '10', '11', '12', '13'];
-      for (const prod of prodRows) {
-        const color = prod.colorway || 'Standard';
-        for (const size of sizes) {
-          _db.run(
-            `INSERT INTO product_variants (product_id, size, color, quantity)
-             VALUES (?, ?, ?, ?)`,
-            [prod.id, size, color, 5] // default quantity of 5
-          );
-        }
+    const sizes = ['8', '9', '10', '11', '12', '13'];
+    for (const prod of _rows('SELECT id, colorway FROM products')) {
+      const color = prod.colorway || 'Standard';
+      for (const size of sizes) {
+        _db.run(
+          `INSERT INTO product_variants (product_id, size, color, quantity)
+           VALUES (?, ?, ?, ?)`,
+          [prod.id, size, color, 5] // default quantity of 5
+        );
       }
     }
   }
@@ -225,6 +201,49 @@ function _persist() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/* Every exported function opened with this guard, in two different wordings.
+   One helper keeps the message consistent and the intent obvious. */
+function _assertReady() {
+  if (!_db) throw new Error('DB not initialised — call db.init() first');
+}
+
+/* sql.js exec() returns [{ columns, values }] with values as positional arrays.
+   Turning that into plain objects was open-coded in six places. */
+function _rows(sql, params) {
+  const result = params === undefined ? _db.exec(sql) : _db.exec(sql, params);
+  if (!result.length) return [];
+  const { columns, values } = result[0];
+  return values.map((row) => {
+    const obj = {};
+    columns.forEach((col, i) => { obj[col] = row[i]; });
+    return obj;
+  });
+}
+
+/* Row count for a table. Only ever called with literal table names from init(). */
+function _count(table) {
+  return _rows(`SELECT count(*) AS count FROM ${table}`)[0].count;
+}
+
+/* Rows affected by the statement that just ran. Read after a write to tell
+   "updated" from "no such row" — the pattern behind every boolean this module
+   returns from an UPDATE or DELETE. */
+function _changed() {
+  return _db.exec('SELECT changes() AS changed')[0].values[0][0];
+}
+
+/* Runs a mutation, persists only when it actually changed something, and
+   reports whether it did. The `if (modified > 0) { _persist(); return true; }
+   return false;` tail was repeated after every update and delete. */
+function _persistIfChanged() {
+  if (_changed() > 0) {
+    _persist();
+    return true;
+  }
+  return false;
+}
+
 function _getOrderById(sessionId) {
   const stmt  = _db.prepare('SELECT * FROM orders WHERE id = ?');
   stmt.bind([sessionId]);
@@ -252,7 +271,7 @@ module.exports = {
    * @returns {{ inserted: boolean, duplicate: boolean }}
    */
   upsertOrder(session, items = []) {
-    if (!_db) throw new Error('DB not initialised — call db.init() first');
+    _assertReady();
 
     const existing = _getOrderById(session.id);
     if (existing) return { inserted: false, duplicate: true };
@@ -300,7 +319,7 @@ module.exports = {
    * @returns {object|null}
    */
   getOrder(sessionId) {
-    if (!_db) throw new Error('DB not initialised — call db.init() first');
+    _assertReady();
     const row = _getOrderById(sessionId);
     if (!row) return null;
     return { ...row, items: JSON.parse(row.items ?? '[]') };
@@ -311,16 +330,11 @@ module.exports = {
    * @returns {Array}
    */
   getAllOrders() {
-    if (!_db) throw new Error('DB not initialised — call db.init() first');
-    const result = _db.exec('SELECT * FROM orders ORDER BY created_at DESC');
-    if (!result.length) return [];
-    const { columns, values } = result[0];
-    return values.map(row => {
-      const obj = {};
-      columns.forEach((col, i) => { obj[col] = row[i]; });
-      obj.items = JSON.parse(obj.items ?? '[]');
-      return obj;
-    });
+    _assertReady();
+    return _rows('SELECT * FROM orders ORDER BY created_at DESC').map((order) => ({
+      ...order,
+      items: JSON.parse(order.items ?? '[]'),
+    }));
   },
 
   /**
@@ -330,48 +344,29 @@ module.exports = {
    * @returns {boolean} true if updated, false if order not found
    */
   updateOrderStatus(sessionId, status) {
-    if (!_db) throw new Error('DB not initialised — call db.init() first');
+    _assertReady();
     const stmt = _db.prepare('UPDATE orders SET fulfillment_status = ? WHERE id = ?');
     stmt.bind([status, sessionId]);
     stmt.step();
     stmt.free();
-    
-    // Check if any rows were modified
-    const modified = _db.exec('SELECT changes() AS changed')[0].values[0][0];
-    if (modified > 0) {
-      _persist();
-      return true;
-    }
-    return false;
+
+    return _persistIfChanged();
   },
 
   // ── Products API ─────────────────────────────────────────────────────────────
 
   getAllProducts() {
-    if (!_db) throw new Error('DB not initialised — call db.init() first');
-    const result = _db.exec('SELECT * FROM products ORDER BY created_at DESC');
-    if (!result.length) return [];
-    const { columns, values } = result[0];
-    return values.map(row => {
-      const obj = {};
-      columns.forEach((col, i) => { obj[col] = row[i]; });
-      return obj;
-    });
+    _assertReady();
+    return _rows('SELECT * FROM products ORDER BY created_at DESC');
   },
 
   getProduct(id) {
-    if (!_db) throw new Error('DB not initialised — call db.init() first');
-    const result = _db.exec("SELECT * FROM products WHERE id = ?", [id]);
-    if (!result.length) return null;
-    const { columns, values } = result[0];
-    const row = values[0];
-    const obj = {};
-    columns.forEach((col, i) => { obj[col] = row[i]; });
-    return obj;
+    _assertReady();
+    return _rows('SELECT * FROM products WHERE id = ?', [id])[0] ?? null;
   },
 
   createProduct(data) {
-    if (!_db) throw new Error('DB not initialised');
+    _assertReady();
     _db.run(
       `INSERT INTO products (id, name, colorway, category, price, sku, tag, image, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -391,7 +386,7 @@ module.exports = {
   },
 
   updateProduct(id, data) {
-    if (!_db) throw new Error('DB not initialised');
+    _assertReady();
 
     // The PUT route validates with productSchema.partial(), so any field may be
     // absent. Merge onto the stored row first — otherwise a legitimate partial
@@ -417,16 +412,11 @@ module.exports = {
     stmt.step();
     stmt.free();
 
-    const modified = _db.exec('SELECT changes() AS changed')[0].values[0][0];
-    if (modified > 0) {
-      _persist();
-      return true;
-    }
-    return false;
+    return _persistIfChanged();
   },
 
   deleteProduct(id) {
-    if (!_db) throw new Error('DB not initialised');
+    _assertReady();
     
     // Delete variants first (foreign key constraint might not be strictly enforced in this SQLite setup without PRAGMA foreign_keys = ON, but good practice)
     const varStmt = _db.prepare('DELETE FROM product_variants WHERE product_id = ?');
@@ -439,12 +429,7 @@ module.exports = {
     stmt.step();
     stmt.free();
 
-    const modified = _db.exec('SELECT changes() AS changed')[0].values[0][0];
-    if (modified > 0) {
-      _persist();
-      return true;
-    }
-    return false;
+    return _persistIfChanged();
   },
 
   // ── Newsletter API ───────────────────────────────────────────────────────────
@@ -460,7 +445,7 @@ module.exports = {
    * @returns {{ created: boolean }}
    */
   addSubscriber(email) {
-    if (!_db) throw new Error('DB not initialised');
+    _assertReady();
     try {
       _db.run(
         'INSERT INTO newsletter_subscribers (email, created_at) VALUES (?, ?)',
@@ -475,30 +460,19 @@ module.exports = {
   },
 
   getSubscribers() {
-    if (!_db) throw new Error('DB not initialised');
-    const result = _db.exec('SELECT * FROM newsletter_subscribers ORDER BY created_at DESC');
-    if (!result.length) return [];
-    const { columns, values } = result[0];
-    return values.map(row => {
-      const obj = {};
-      columns.forEach((col, i) => { obj[col] = row[i]; });
-      return obj;
-    });
+    _assertReady();
+    return _rows('SELECT * FROM newsletter_subscribers ORDER BY created_at DESC');
   },
 
   // ── Product Variants API ───────────────────────────────────────────────────
 
   getVariantsForProduct(productId) {
-    if (!_db) throw new Error('DB not initialised');
-    const stmt = _db.prepare('SELECT * FROM product_variants WHERE product_id = ? ORDER BY size ASC');
-    stmt.bind([productId]);
-    
-    const variants = [];
-    while (stmt.step()) {
-      variants.push(stmt.getAsObject());
-    }
-    stmt.free();
-    return variants;
+    _assertReady();
+    // NB: size is TEXT, so ASC orders lexicographically — 10, 11, 12, 13, 8, 9.
+    return _rows(
+      'SELECT * FROM product_variants WHERE product_id = ? ORDER BY size ASC',
+      [productId]
+    );
   },
 
   /**
@@ -509,39 +483,26 @@ module.exports = {
    * @returns {Array} products, each with a `variants` array (possibly empty)
    */
   getAllProductsWithVariants() {
-    if (!_db) throw new Error('DB not initialised — call db.init() first');
+    _assertReady();
     const products = this.getAllProducts();
     if (!products.length) return products;
 
     const byProduct = new Map();
-    const result = _db.exec('SELECT * FROM product_variants ORDER BY size ASC');
-    if (result.length) {
-      const { columns, values } = result[0];
-      for (const row of values) {
-        const variant = {};
-        columns.forEach((col, i) => { variant[col] = row[i]; });
-        if (!byProduct.has(variant.product_id)) byProduct.set(variant.product_id, []);
-        byProduct.get(variant.product_id).push(variant);
-      }
+    for (const variant of _rows('SELECT * FROM product_variants ORDER BY size ASC')) {
+      if (!byProduct.has(variant.product_id)) byProduct.set(variant.product_id, []);
+      byProduct.get(variant.product_id).push(variant);
     }
 
     return products.map((p) => ({ ...p, variants: byProduct.get(p.id) || [] }));
   },
 
   getVariant(id) {
-    if (!_db) throw new Error('DB not initialised');
-    const stmt = _db.prepare('SELECT * FROM product_variants WHERE id = ?');
-    stmt.bind([id]);
-    let variant = null;
-    if (stmt.step()) {
-      variant = stmt.getAsObject();
-    }
-    stmt.free();
-    return variant;
+    _assertReady();
+    return _rows('SELECT * FROM product_variants WHERE id = ?', [id])[0] ?? null;
   },
 
   addVariant(data) {
-    if (!_db) throw new Error('DB not initialised');
+    _assertReady();
     _db.run(
       `INSERT INTO product_variants (product_id, size, color, quantity, sku)
        VALUES (?, ?, ?, ?, ?)`,
@@ -560,7 +521,7 @@ module.exports = {
   },
 
   updateVariant(id, data) {
-    if (!_db) throw new Error('DB not initialised');
+    _assertReady();
     const stmt = _db.prepare(`
       UPDATE product_variants 
       SET size = ?, color = ?, quantity = ?, sku = ?
@@ -570,31 +531,21 @@ module.exports = {
     stmt.step();
     stmt.free();
     
-    const modified = _db.exec('SELECT changes() AS changed')[0].values[0][0];
-    if (modified > 0) {
-      _persist();
-      return true;
-    }
-    return false;
+    return _persistIfChanged();
   },
 
   deleteVariant(id) {
-    if (!_db) throw new Error('DB not initialised');
+    _assertReady();
     const stmt = _db.prepare('DELETE FROM product_variants WHERE id = ?');
     stmt.bind([id]);
     stmt.step();
     stmt.free();
 
-    const modified = _db.exec('SELECT changes() AS changed')[0].values[0][0];
-    if (modified > 0) {
-      _persist();
-      return true;
-    }
-    return false;
+    return _persistIfChanged();
   },
 
   decrementVariantQuantity(id, qty) {
-    if (!_db) throw new Error('DB not initialised');
+    _assertReady();
     
     // First fetch current state for logging purposes
     const stmt = _db.prepare('SELECT quantity, product_id, size, color FROM product_variants WHERE id = ?');
@@ -617,13 +568,14 @@ module.exports = {
     updateStmt.step();
     updateStmt.free();
     
-    const modified = _db.exec('SELECT changes() AS changed')[0].values[0][0];
-    if (modified === 0) {
-      // Stock was insufficient by the time webhook ran
+    // Not _persistIfChanged(): a no-op here means the guard rejected the
+    // decrement, which is an oversell worth shouting about rather than a
+    // routine "no such row".
+    if (_changed() === 0) {
       console.error(`    🚨 OVERSELL CONFLICT: Variant ${id} (${variant.product_id} - ${variant.color} - ${variant.size}) had ${variant.quantity} in stock, but order tried to deduct ${qty}. Manual review needed!`);
       return false;
     }
-    
+
     _persist();
     return true;
   }
