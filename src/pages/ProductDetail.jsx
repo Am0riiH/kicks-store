@@ -6,6 +6,11 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+/* Module-level so the reference is stable across renders. useProductVariants
+   lists the preloaded array in an effect dependency, so a fresh [] literal on
+   every render would re-fire that effect in a loop. */
+const NO_VARIANTS = [];
+
 export default function ProductDetail() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
@@ -25,10 +30,20 @@ export default function ProductDetail() {
     isSoldOut,
     isSelectedVariantOut,
     loading: loadingVariants
-    // /api/products/:id embeds variants. `null` while the product is still
-    // loading tells the hook to wait rather than fire a request it would
-    // immediately discard — see the three-state contract in the hook.
-  } = useProductVariants(id, product ? (product.variants || []) : null);
+    // Three-state contract: `undefined` makes the hook fetch for itself, `null`
+    // means "a caller IS supplying these but hasn't loaded them yet", an array
+    // is used as-is. /api/products/:id embeds variants, so the loaded array is
+    // passed straight through and the hook never fires its own request — that
+    // is what keeps this page at one request instead of two.
+    //
+    // The condition is deliberately `loadingProduct`, not `product`. `null`
+    // means "still fetching", so it has to stop the moment our fetch settles —
+    // whatever the outcome. Keying it off `product` instead meant a failed
+    // fetch kept saying "wait" forever: the hook has no way to know the parent
+    // gave up, loadingVariants stayed true, and the loading gate below shadowed
+    // the Product Not Found branch entirely. Keying off loadingProduct resolves
+    // success, error and a 200 carrying no product identically.
+  } = useProductVariants(id, loadingProduct ? null : (product?.variants || NO_VARIANTS));
 
   useEffect(() => {
     setLoadingProduct(true);

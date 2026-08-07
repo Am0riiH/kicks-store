@@ -62,34 +62,54 @@ describe('loading and errors', () => {
     expect(screen.getByText(/loading product details/i)).toBeInTheDocument();
   });
 
-  // ── BUG (documented, not fixed) ────────────────────────────────────────────
-  // A failed product fetch spins forever instead of showing "Product Not Found",
-  // and that whole branch (ProductDetail.jsx:66-76) is unreachable.
-  //
-  // Why: the page passes `product ? (product.variants || []) : null` to
-  // useProductVariants. When the fetch fails, `product` stays null, so the hook
-  // gets the "wait for the parent" sentinel — its effect returns early and never
-  // clears `loading`. loadingVariants therefore stays true forever, and
-  // `if (loadingProduct || loadingVariants)` returns the spinner before the
-  // error branch below it is ever evaluated.
-  //
-  // Introduced by the M5 three-state change; the sentinel has no path out when
-  // the parent's own fetch fails.
-  //
-  // Fix would be to track the failure explicitly, e.g. pass `[]` rather than
-  // `null` once `error` is set, or gate the spinner on `!error`.
+  // Regression: a failed fetch used to spin forever, leaving the "Product Not
+  // Found" branch unreachable. The page passes the null "waiting for the
+  // parent" sentinel to useProductVariants; when the fetch failed, `product`
+  // never became non-null, the hook never cleared its loading flag, and the
+  // loading gate ran before the error branch. Fixed by resolving the sentinel
+  // to an empty array once `error` is set, and by checking `error` first.
   it.each([
     ['a 404', () => jsonResponse({ error: 'Product not found' }, { status: 404 })],
+    ['a 500', () => jsonResponse({ error: 'Internal server error' }, { status: 500 })],
     ['a network failure', () => Promise.reject(new Error('offline'))],
-  ])('BUG: stays on the loading spinner after %s', async (_label, response) => {
+  ])('reaches the not-found state after %s', async (_label, response) => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     mockFetch({ [DETAIL]: response });
     renderDetail();
 
-    // Current behaviour: the spinner never clears.
-    await waitFor(() =>
-      expect(screen.getByText(/loading product details/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /product not found/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to store/i })).toHaveAttribute('href', '/store');
+    // And it must not still be showing the spinner alongside it.
+    expect(screen.queryByText(/loading product details/i)).not.toBeInTheDocument();
+  });
+
+  it('settles quickly rather than hanging on the spinner', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockFetch({ [DETAIL]: () => Promise.reject(new Error('offline')) });
+    renderDetail();
+
+    // A tight timeout is the point of this test: the old behaviour never left
+    // the loading state at all, so a generous one would still pass by accident.
+    await waitFor(
+      () => expect(screen.getByRole('heading', { name: /product not found/i })).toBeInTheDocument(),
+      { timeout: 1000 }
     );
+  });
+
+  it('shows the not-found state when the API returns no product', async () => {
+    mockFetch({ [DETAIL]: jsonResponse({}) });
+    renderDetail();
+
+    expect(await screen.findByRole('heading', { name: /product not found/i })).toBeInTheDocument();
+  });
+
+  it('does not flash the not-found state while still loading', async () => {
+    mockFetch({ [DETAIL]: () => new Promise(() => {}) });
+    renderDetail();
+
+    // `!loadingProduct && !product` must not fire on the first render, or every
+    // page load would blink "Product Not Found" before the data arrives.
+    expect(screen.getByText(/loading product details/i)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /product not found/i })).not.toBeInTheDocument();
   });
 });

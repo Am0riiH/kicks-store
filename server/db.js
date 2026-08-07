@@ -547,9 +547,15 @@ module.exports = {
        VALUES (?, ?, ?, ?, ?)`,
       [data.product_id, data.size, data.color, data.quantity || 0, data.sku || null]
     );
-    _persist();
-    // Fetch the inserted row (sqlite last_insert_rowid)
+
+    // Read the new row id BEFORE persisting. _persist() calls _db.export(),
+    // which sql.js implements by closing and reopening the database handle —
+    // and last_insert_rowid() is per-connection state, so it reports 0 on the
+    // reopened handle. Reading it after _persist() returned 0 for every insert.
     const id = _db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
+
+    _persist();
+
     return { ...data, id };
   },
 

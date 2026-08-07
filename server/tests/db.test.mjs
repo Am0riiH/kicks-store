@@ -21,16 +21,9 @@ afterEach(() => {
 /** Unique ids keep tests order-independent — one seeded DB serves the whole file. */
 const uid = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
-/**
- * addVariant's return value carries a broken id (see the BUG test below), so
- * every test that needs to address the new row reads it back instead.
- */
-function addVariantAndRead(data) {
-  db.addVariant(data);
-  // getVariantsForProduct sorts by size as TEXT, so "newest" is highest id.
-  return db
-    .getVariantsForProduct(data.product_id)
-    .reduce((newest, row) => (!newest || row.id > newest.id ? row : newest), null);
+/** The row as actually stored, for asserting DB-applied defaults. */
+function storedVariant(id) {
+  return db.getVariant(id);
 }
 
 function makeProduct(over = {}) {
@@ -274,11 +267,11 @@ describe('addVariant', () => {
     const product = makeProduct();
     db.createProduct(product);
 
-    const stored = addVariantAndRead({
+    const created = db.addVariant({
       product_id: product.id, size: '10', color: 'Red', quantity: 7, sku: 'V-1',
     });
 
-    expect(stored).toMatchObject({
+    expect(storedVariant(created.id)).toMatchObject({
       product_id: product.id, size: '10', color: 'Red', quantity: 7, sku: 'V-1',
     });
   });
@@ -287,34 +280,65 @@ describe('addVariant', () => {
     const product = makeProduct();
     db.createProduct(product);
 
-    const stored = addVariantAndRead({ product_id: product.id, size: '9', color: 'Blue' });
+    const created = db.addVariant({ product_id: product.id, size: '9', color: 'Blue' });
 
+    const stored = storedVariant(created.id);
     expect(stored.quantity).toBe(0);
     expect(stored.sku).toBeNull();
   });
 
-  // ── BUG (documented, not fixed) ────────────────────────────────────────────
-  // addVariant returns `id: 0` for every insert. _persist() runs BEFORE the
-  // last_insert_rowid() read (db.js:550-552), and sql.js's export() closes and
-  // reopens the connection to read the file back. last_insert_rowid() is
-  // per-connection state, so the reopened handle reports 0.
-  //
-  // Impact: POST /api/admin/products/:id/variants responds with
-  // { variant: { …, id: 0 } }. The admin UI refetches the list straight after,
-  // which is the only reason this has gone unnoticed.
-  //
-  // Fix would be to read last_insert_rowid() before calling _persist().
-  it('BUG: returns id 0 instead of the real row id', () => {
+  // Regression: addVariant used to return id 0 for every insert, because
+  // _persist() ran before the last_insert_rowid() read. _persist() calls
+  // _db.export(), which sql.js implements by closing and reopening the handle,
+  // and last_insert_rowid() is per-connection state — so the reopened handle
+  // always reported 0. POST /api/admin/products/:id/variants echoed that 0
+  // straight back to the admin UI.
+  it('returns the real row id, matching a fresh lookup of that row', () => {
     const product = makeProduct();
     db.createProduct(product);
 
-    const returned = db.addVariant({
-      product_id: product.id, size: '10', color: 'Red', quantity: 1,
+    const created = db.addVariant({
+      product_id: product.id, size: '10', color: 'Red', quantity: 1, sku: 'REAL-ID',
     });
-    const [stored] = db.getVariantsForProduct(product.id);
 
-    expect(returned.id).toBe(0);
-    expect(stored.id).toBeGreaterThan(0);
+    // Not merely non-zero: it must address the row that was just written.
+    const found = db.getVariant(created.id);
+    expect(found).not.toBeNull();
+    expect(found.id).toBe(created.id);
+    expect(found.sku).toBe('REAL-ID');
+
+    // And it must agree with the row the product query returns.
+    const [viaProduct] = db.getVariantsForProduct(product.id);
+    expect(created.id).toBe(viaProduct.id);
+  });
+
+  it('returns a distinct, ascending id for each insert', () => {
+    const product = makeProduct();
+    db.createProduct(product);
+
+    const first = db.addVariant({ product_id: product.id, size: '9', color: 'Red', quantity: 1 });
+    const second = db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity: 1 });
+
+    expect(second.id).toBeGreaterThan(first.id);
+    expect(db.getVariant(first.id).size).toBe('9');
+    expect(db.getVariant(second.id).size).toBe('10');
+  });
+
+  it('survives the export/reopen cycle — the id is still correct after persisting', () => {
+    const product = makeProduct();
+    db.createProduct(product);
+
+    // Several inserts in a row: each one triggers an export()/reopen, so a
+    // regression here would show up as 0 or a stale id on every call but the
+    // first.
+    const ids = ['8', '9', '10', '11'].map((size) =>
+      db.addVariant({ product_id: product.id, size, color: 'Red', quantity: 2 }).id
+    );
+
+    expect(new Set(ids).size).toBe(4);
+    for (const id of ids) {
+      expect(db.getVariant(id)).not.toBeNull();
+    }
   });
 });
 
@@ -322,7 +346,7 @@ describe('getVariant', () => {
   it('finds a variant by numeric id', () => {
     const product = makeProduct();
     db.createProduct(product);
-    const created = addVariantAndRead({
+    const created = db.addVariant({
       product_id: product.id, size: '10', color: 'Red', quantity: 7,
     });
 
@@ -334,7 +358,7 @@ describe('getVariant', () => {
   it('finds the same variant given a string id', () => {
     const product = makeProduct();
     db.createProduct(product);
-    const created = addVariantAndRead({
+    const created = db.addVariant({
       product_id: product.id, size: '11', color: 'Blue', quantity: 2,
     });
 
@@ -353,7 +377,7 @@ describe('decrementVariantQuantity', () => {
   const withStock = (quantity) => {
     const product = makeProduct();
     db.createProduct(product);
-    return addVariantAndRead({ product_id: product.id, size: '10', color: 'Red', quantity });
+    return db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity });
   };
 
   it('decrements when there is enough stock', () => {
@@ -414,7 +438,7 @@ describe('updateVariant', () => {
   it('updates a variant when every field is supplied', () => {
     const product = makeProduct();
     db.createProduct(product);
-    const v = addVariantAndRead({ product_id: product.id, size: '10', color: 'Red', quantity: 5 });
+    const v = db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity: 5 });
 
     expect(db.updateVariant(v.id, { size: '10', color: 'Red', quantity: 9, sku: 'X' })).toBe(true);
     expect(db.getVariant(v.id).quantity).toBe(9);
@@ -432,7 +456,7 @@ describe('updateVariant', () => {
   it('BUG: throws on a partial update instead of merging', () => {
     const product = makeProduct();
     db.createProduct(product);
-    const v = addVariantAndRead({ product_id: product.id, size: '10', color: 'Red', quantity: 5 });
+    const v = db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity: 5 });
 
     expect(() => db.updateVariant(v.id, { quantity: 3 })).toThrow(/Wrong API use/i);
     expect(db.getVariant(v.id).quantity).toBe(5);
@@ -441,7 +465,7 @@ describe('updateVariant', () => {
   it('BUG: silently blanks sku when the field is omitted', () => {
     const product = makeProduct();
     db.createProduct(product);
-    const v = addVariantAndRead({
+    const v = db.addVariant({
       product_id: product.id, size: '10', color: 'Red', quantity: 5, sku: 'KEEP-ME',
     });
 
@@ -455,7 +479,7 @@ describe('deleteVariant', () => {
   it('deletes an existing variant', () => {
     const product = makeProduct();
     db.createProduct(product);
-    const v = addVariantAndRead({ product_id: product.id, size: '10', color: 'Red', quantity: 1 });
+    const v = db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity: 1 });
 
     expect(db.deleteVariant(v.id)).toBe(true);
     expect(db.getVariant(v.id)).toBeNull();

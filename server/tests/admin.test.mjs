@@ -462,6 +462,12 @@ describe('variant routes', () => {
     const stored = db.getVariantsForProduct(product.id);
     expect(stored).toHaveLength(1);
     expect(stored[0].quantity).toBe(4);
+
+    // The echoed id must address the row that was just created — it used to
+    // come back as 0 for every insert, and only went unnoticed because the
+    // admin UI refetches the list immediately afterwards.
+    expect(res.body.variant.id).toBe(stored[0].id);
+    expect(db.getVariant(res.body.variant.id)).not.toBeNull();
   });
 
   it('accepts a zero quantity', async () => {
