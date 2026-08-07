@@ -284,8 +284,9 @@ for and uses to re-run the Phase 0 timeline (giant wordmark → watermark + shoe
 
 ## Notes
 
-- Product images are Unsplash placeholders — swap `src/data/products.js` with your real
-  catalog + CDN URLs.
+- Product images are Unsplash placeholders. The catalog is seeded into SQLite on first
+  boot by the `seedData` block in `server/db.js` `init()`; after that it is managed
+  through `/admin/products`, so edit it there or change the seed for a fresh database.
 - Payment marks in the cart drawer are neutral geometric placeholders, not the actual
   Visa/Mastercard/Apple Pay/Google Pay trademarks — swap in official SVG assets before
   shipping to production.
