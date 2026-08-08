@@ -11,9 +11,15 @@ export default function AdminOrders() {
     loginError, loggingIn, login, logout,
   } = useAdminAuth('/api/admin/orders');
 
-  // Dashboard state
+  // Dashboard state.
+  //
+  // `loading` starts true when a stored session exists, rather than being
+  // flipped on inside the mount effect below. Setting it there meant the first
+  // paint rendered the dashboard with an empty order list before the effect
+  // switched it to the loading state — a visible flash of "No orders found" on
+  // every reload — and cost an extra render to correct itself.
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => !!sessionStorage.getItem('adminAuth'));
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -32,7 +38,6 @@ export default function AdminOrders() {
     const stored = sessionStorage.getItem('adminAuth');
     if (!stored) return;
 
-    setLoading(true);
     fetch(`${API_BASE}/api/admin/orders`, { headers: { 'Authorization': stored } })
       .then(readAdminResponse)
       .then((data) => {

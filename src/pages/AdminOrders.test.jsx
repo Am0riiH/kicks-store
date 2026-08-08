@@ -122,6 +122,21 @@ describe('session restore', () => {
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe(AUTH);
   });
 
+  it('shows the loading state on the very first paint, not an empty dashboard', () => {
+    signedIn();
+    mockFetch({ [ORDERS]: () => new Promise(() => {}) });
+
+    renderPage();
+
+    // `loading` is seeded from sessionStorage rather than flipped on inside the
+    // mount effect. Setting it in the effect meant the first render painted the
+    // dashboard with zero orders — a flash of "No orders found" on every reload
+    // — before a second render corrected it. Asserted synchronously, with no
+    // waiting, so it fails if that regresses.
+    expect(screen.getByText(/loading orders/i)).toBeInTheDocument();
+    expect(screen.queryByText('No orders found')).not.toBeInTheDocument();
+  });
+
   it('silently logs out when the stored credential is rejected', async () => {
     signedIn();
     mockFetch({ [ORDERS]: jsonResponse({ error: 'nope' }, { status: 401 }) });
