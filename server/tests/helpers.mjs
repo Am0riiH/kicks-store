@@ -48,9 +48,8 @@ export async function loadApp() {
 }
 
 // ─── Stripe webhook signing ──────────────────────────────────────────────────
-// generateTestHeaderString is pure local HMAC — the same technique the existing
-// server/webhook-test.js script uses. No network, so it works under nock's
-// disableNetConnect.
+// generateTestHeaderString is pure local HMAC — no network, so it works under
+// nock's disableNetConnect.
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 /** Serialised payload plus a valid `stripe-signature` for it. */

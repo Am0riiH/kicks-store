@@ -103,8 +103,6 @@ export default defineConfig({
         '**/*.test.{js,jsx,mjs}',
         'server/tests/**',
         'server/generate-hash.js',
-        'server/test-*.js',
-        'server/webhook-test.js',
       ],
     },
   },
