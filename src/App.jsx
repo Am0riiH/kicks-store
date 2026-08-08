@@ -32,6 +32,18 @@ export default function App() {
   const [load3D, setLoad3D] = useState(false);
 
   useEffect(() => {
+    // Once loaded the canvas stays mounted for the rest of the session, so
+    // navigating home -> store keeps the shoe as ambient scenery exactly as
+    // before. Nothing here ever sets it back to false.
+    if (load3D) return;
+
+    /* Only the home route pays for the 3D scene.
+       SceneCanvas renders at opacity 0 and is faded in by Home.jsx, so on a
+       direct load of /store or /admin the canvas was downloading ~1.5MB of GLB,
+       KTX2 transcoder and HDR to render something permanently invisible. Home
+       is the only page that ever reveals it. */
+    if (location.pathname !== '/') return;
+
     // Graceful degradation: if user has data-saver enabled, skip the 1.8MB+ 3D load entirely.
     // The poster will remain permanently.
     const isDataSaver = navigator.connection?.saveData === true;
@@ -42,7 +54,7 @@ export default function App() {
     const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
     const handle = idleCallback(() => setLoad3D(true), { timeout: 1000 });
     return () => window.cancelIdleCallback ? window.cancelIdleCallback(handle) : clearTimeout(handle);
-  }, []);
+  }, [location.pathname, load3D]);
 
   return (
 

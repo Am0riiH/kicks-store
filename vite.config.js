@@ -15,44 +15,34 @@ export default defineConfig({
       transformIndexHtml: {
         order: 'pre',
         handler() {
+          /* These four assets total ~1.5MB and are only ever used by the 3D
+             scene on the home route. As static <link rel="preload"> tags they
+             were fetched on EVERY route — a /store or /admin visit downloaded
+             the whole 3D payload at high priority and never used a byte of it.
+             (Measured: the store page transferred 2,415KB.)
+
+             index.html is shared by every route in an SPA, so the tags cannot
+             be emitted conditionally at build time. A tiny inline script in
+             <head> injects them only for the home route; it runs before the
+             parser reaches the module scripts, so home keeps its early,
+             high-priority fetch. */
+          const assets = [
+            ['/models/air-jordan-draco.glb', 'fetch'],
+            ['/ui/potsdamer_platz_256.exr', 'fetch'],
+            ['/basis/basis_transcoder.js', 'script'],
+            ['/basis/basis_transcoder.wasm', 'fetch'],
+          ];
+
           return [
             {
-              tag: 'link',
-              attrs: {
-                rel: 'preload',
-                as: 'fetch',
-                href: '/models/air-jordan-draco.glb',
-                crossorigin: '',
-              },
-              injectTo: 'head',
-            },
-            {
-              tag: 'link',
-              attrs: {
-                rel: 'preload',
-                as: 'fetch',
-                href: '/ui/potsdamer_platz_256.exr',
-                crossorigin: '',
-              },
-              injectTo: 'head',
-            },
-            {
-              tag: 'link',
-              attrs: {
-                rel: 'preload',
-                as: 'script',
-                href: '/basis/basis_transcoder.js',
-              },
-              injectTo: 'head',
-            },
-            {
-              tag: 'link',
-              attrs: {
-                rel: 'preload',
-                as: 'fetch',
-                href: '/basis/basis_transcoder.wasm',
-                crossorigin: '',
-              },
+              tag: 'script',
+              children:
+                `if(location.pathname==='/'){` +
+                `for(var a of ${JSON.stringify(assets)}){` +
+                `var l=document.createElement('link');` +
+                `l.rel='preload';l.as=a[1];l.href=a[0];` +
+                `if(a[1]==='fetch')l.crossOrigin='';` +
+                `document.head.appendChild(l);}}`,
               injectTo: 'head',
             },
           ];
