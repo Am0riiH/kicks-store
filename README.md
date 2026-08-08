@@ -215,34 +215,51 @@ User enters card details on Stripe's servers
 Cancel  → redirect to /checkout/cancel → cart intact, no webhook fired
 ```
 
-### Understanding what's reliable now vs. what needs a database (v3)
+### What the checkout guarantees
 
-| Concern | v2 (now) | v3 (needs DB) |
-|---|---|---|
-| Payment confirmed? | ✅ Webhook `checkout.session.completed` is server-authoritative | — |
-| Cart clears? | ✅ Client-side on success page redirect (UX nicety) | ✅ Could also gate on order status |
-| Order persisted? | ❌ Only console log | ✅ Write to DB in webhook handler |
-| Confirmation email? | ❌ Nothing sent | ✅ Trigger via email service in webhook |
-| Inventory decremented? | ❌ Nothing decremented | ✅ Call inventory API in webhook |
-| User closes tab before redirect? | ⚠️ Cart won't clear (webhook still fired) | ✅ Check order status before showing "confirmed" |
-| Duplicate webhook delivery? | ⚠️ `stripe trigger` hits handler twice if sent twice | ✅ Idempotency check on `session.id` in DB |
+| Concern | Status |
+|---|---|
+| Payment confirmed? | ✅ `checkout.session.completed` webhook is server-authoritative, signature-verified |
+| Order persisted? | ✅ Written to SQLite by the webhook handler |
+| Confirmation email? | ✅ Sent via Resend (skipped with a warning if `RESEND_API_KEY` is unset) |
+| Inventory decremented? | ✅ Per line item, with a database-level guard that refuses to oversell |
+| Duplicate webhook delivery? | ✅ Idempotent — `upsertOrder` checks `session.id` before inserting |
+| User closes the tab before redirect? | ✅ The order is already stored; the success page polls `/api/order-status` |
+| Cart clears? | ✅ Only after the success page confirms the order server-side |
+| Prices trusted from the client? | ✅ No — the charged amount is read from the products table, never the request |
 
-**The client-side `clearCart()` on the success page is kept intentionally** — it's
-immediate, gives instant visual feedback, and works fine for v2. The webhook is now the
-*authoritative* source of truth. In v3 you'd store confirmed order IDs server-side and
-have the success page query `/api/order-status?session_id=…` before showing "confirmed",
-so users who close the tab before the redirect still get a correct order state.
+### ⚠️ Data durability
+
+`server/data.db` is **ephemeral on Render's free tier** — the filesystem is
+discarded on every deploy and on the spin-down that follows ~15 minutes of
+inactivity. On redeploy:
+
+| Data | What happens |
+|---|---|
+| Orders | Lost from the database, but **recoverable from Stripe** — it holds every session, line item and customer detail |
+| Fulfillment status (pending/completed/rejected) | **Lost, unrecoverable** — it exists nowhere else |
+| Admin-created or edited products | **Lost** — the catalogue reverts to the seed |
+| Inventory counters | **Reset to the seed value of 5.** Sell three pairs, deploy, and the store believes it has five again |
+| Newsletter subscribers | **Lost** unless `RESEND_AUDIENCE_ID` is set, which mirrors them into Resend |
+
+The inventory reset is the one to watch: it is a correctness problem, not just
+data loss. Stripe cannot restore stock counters.
+
+To make it durable, attach a persistent disk to the Render service (a paid
+instance) and point `DB_PATH` at it — `server/db.js` already reads that
+variable, so no code changes are needed.
 
 ### Production checklist (before going live)
 
-- [ ] Replace `sk_test_…` with `sk_live_…` in production server env (**deliberate step!**)
+- [ ] Replace `sk_test_…` with `sk_live_…` in the production server env (**deliberate step!**)
 - [ ] In Stripe Dashboard → Developers → Webhooks → Add endpoint, set your production URL
-- [ ] Copy the Dashboard's permanent signing secret into your production env as `STRIPE_WEBHOOK_SECRET`
-- [ ] Update `success_url` / `cancel_url` in `server/index.js` to your real domain
-- [ ] Update the `ALLOWED_ORIGINS` array in `server/index.js` to your real domain
+- [ ] Copy the Dashboard's permanent signing secret into the production env as `STRIPE_WEBHOOK_SECRET`
+- [ ] Set `FRONTEND_URL` on Render — without it, paying customers are redirected to `localhost:5173`
+- [ ] Set `VITE_API_URL` on Vercel to the Render backend URL
+- [ ] Set `RESEND_AUDIENCE_ID` so newsletter signups survive a redeploy
+- [ ] Rotate `ADMIN_PASSWORD_HASH` and confirm the value on Render, not just locally
 - [ ] Remove the "🧪 Test mode" notice from `src/pages/CheckoutSuccess.jsx`
-- [ ] Add DB persistence + email in the `checkout.session.completed` handler (v3)
-- [ ] Add idempotency check (skip if `session.id` already processed) to handle Stripe retries
+- [ ] Attach a persistent disk and set `DB_PATH` (see Data durability above)
 
 ---
 
@@ -281,6 +298,95 @@ GSAP choreography is still visible while you source the real asset.
 
 Clicking the "NIKE." logo dispatches a `replay-intro` window event that `Home.jsx` listens
 for and uses to re-run the Phase 0 timeline (giant wordmark → watermark + shoe drop/spin/land).
+
+## Deploying from scratch
+
+The frontend and the API deploy separately: Vercel serves the static build,
+Render runs the Express server.
+
+### 1. Backend → Render
+
+Create a Web Service from this repo.
+
+| Setting | Value |
+|---|---|
+| Root directory | `server` |
+| Build command | `npm ci` |
+| Start command | `npm start` |
+
+Environment variables (see `server/.env.example` for what each one does):
+
+| Variable | Required | Notes |
+|---|---|---|
+| `STRIPE_SECRET_KEY` | ✅ | The server refuses to boot without it |
+| `STRIPE_WEBHOOK_SECRET` | ✅ | From Dashboard → Webhooks, **not** the CLI secret |
+| `FRONTEND_URL` | ✅ | Your Vercel URL, no trailing slash. Missing → customers land on `localhost` after paying |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` | ✅ | Hash via `cd server && node generate-hash.js <password>` |
+| `NODE_ENV` | recommended | `production` |
+| `RESEND_API_KEY`, `EMAIL_FROM` | optional | Order confirmation emails; skipped with a warning if unset |
+| `RESEND_AUDIENCE_ID` | optional | Makes newsletter signups survive a redeploy |
+| `CLOUDINARY_*` (3) | optional | Admin image upload; the form falls back to pasting a URL |
+| `DB_PATH` | optional | Only with a persistent disk attached |
+
+Then point Stripe at it: Dashboard → Developers → Webhooks → Add endpoint →
+`https://<your-render-service>/api/webhook`, subscribe to
+`checkout.session.completed`, and copy that endpoint's signing secret into
+`STRIPE_WEBHOOK_SECRET`.
+
+> **Free tier:** the service spins down after ~15 minutes idle. The next
+> request pays a cold start — measured at **~32 seconds**, of which only ~1.2s
+> is this app booting; the rest is Render starting the container. Budget for it
+> or use a paid instance.
+
+### 2. Frontend → Vercel
+
+Import the repo. The framework preset (Vite) gets the defaults right; the only
+thing you must add is:
+
+```
+VITE_API_URL = https://<your-render-service>.onrender.com
+```
+
+It is read at **build** time, so changing it needs a redeploy, not just a
+restart. `vercel.json` already rewrites all paths to `index.html` for SPA
+routing.
+
+### 3. Verify the deployment
+
+```bash
+curl https://<render-service>/health          # {"ok":true,...}
+curl https://<render-service>/api/products    # seeded catalogue
+```
+
+Then check the frontend actually points at the backend — if `VITE_API_URL` was
+missed, the deployed bundle still contains `http://localhost:3001`:
+
+```bash
+curl -s https://<vercel-app>/ | grep -o '/assets/index-[^"]*\.js'
+curl -s https://<vercel-app>/assets/index-XXXX.js | grep -c 'onrender.com'
+```
+
+Finally run the end-to-end purchase flow against production — see
+[tests/e2e/README.md](tests/e2e/README.md).
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and PR to `main`: `npm test`
+(464 tests), `npm run build`, then a lint check.
+
+Lint is a **ratchet**, not a gate. There are known deferred violations — mostly
+React Compiler rules about render timing whose fixes need real restructuring —
+so plain `eslint` exits 1 and would leave CI permanently red. Instead
+`scripts/lint-baseline.mjs` compares against `.lintbaseline.json` and fails only
+when the counts *rise*. Existing debt does not block; new debt does.
+
+After fixing lint problems, lower the baseline:
+
+```bash
+node scripts/lint-baseline.mjs --update
+```
+
+It refuses to raise the baseline, so the ratchet only turns one way.
 
 ## Notes
 
