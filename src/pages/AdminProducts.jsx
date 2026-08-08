@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import AdminNav from '../components/AdminNav.jsx';
 import useImageUpload from '../hooks/useImageUpload.js';
 import { API_BASE, describeApiError } from '../lib/api.js';
+import {
+  useAdminAuth, useNoIndex, readAdminResponse, isUnauthorized,
+} from '../hooks/useAdminAuth.js';
 
 function VariantsManager({ productId, authHeader }) {
   const [variants, setVariants] = useState([]);
@@ -125,12 +128,10 @@ function VariantsManager({ productId, authHeader }) {
 }
 
 export default function AdminProducts() {
-  const [authHeader, setAuthHeader] = useState(() => sessionStorage.getItem('adminAuth'));
-  
-  // Login form state (if not authenticated in sessionStorage, though usually they come from orders)
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState(null);
+  const {
+    authHeader, username, setUsername, password, setPassword,
+    loginError, loggingIn, login, logout,
+  } = useAdminAuth('/api/admin/products');
 
   // Dashboard state
   const [products, setProducts] = useState([]);
@@ -156,32 +157,26 @@ export default function AdminProducts() {
   } = useImageUpload(authHeader);
   const isUploading = uploadStatus === 'compressing' || uploadStatus === 'uploading';
 
-  useEffect(() => {
-    let meta = document.querySelector('meta[name="robots"]');
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.name = 'robots';
-      document.head.appendChild(meta);
-    }
-    meta.content = 'noindex, nofollow';
-    return () => { meta.content = 'index, follow'; };
-  }, []);
+  useNoIndex();
+
+  // Declared before fetchProducts, which calls it on a 401.
+  const handleLogout = () => {
+    logout();
+    setProducts([]);
+    setError(null);
+  };
 
   const fetchProducts = () => {
     if (!authHeader) return;
     setLoading(true);
     fetch(`${API_BASE}/api/admin/products`, { headers: { 'Authorization': authHeader } })
-      .then((res) => {
-        if (res.status === 401) throw new Error('401');
-        if (!res.ok) throw new Error('Server error');
-        return res.json();
-      })
+      .then(readAdminResponse)
       .then((data) => {
         setProducts(data.products || []);
         setLoading(false);
       })
       .catch((err) => {
-        if (err.message === '401') handleLogout();
+        if (isUnauthorized(err)) handleLogout();
         else setError(err.message);
         setLoading(false);
       });
@@ -191,39 +186,9 @@ export default function AdminProducts() {
     fetchProducts();
   }, [authHeader]);
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    setLoginError(null);
-    setLoading(true);
-    
-    const header = `Basic ${btoa(username + ':' + password)}`;
-    
-    fetch(`${API_BASE}/api/admin/products`, { headers: { 'Authorization': header } })
-      .then((res) => {
-        if (res.status === 401) throw new Error('401');
-        if (!res.ok) throw new Error('Server error');
-        return res.json();
-      })
-      .then((data) => {
-        sessionStorage.setItem('adminAuth', header);
-        setAuthHeader(header);
-        setProducts(data.products || []);
-        setUsername('');
-        setPassword('');
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (err.message === '401') setLoginError('Invalid credentials');
-        else setLoginError('Server error: ' + err.message);
-        setLoading(false);
-      });
-  };
-
-  const handleLogout = () => {
-    sessionStorage.removeItem('adminAuth');
-    setAuthHeader(null);
-    setProducts([]);
-    setError(null);
+  const handleLogin = async (e) => {
+    const data = await login(e);
+    if (data) setProducts(data.products || []);
   };
 
   const handleOpenForm = (product = null) => {
@@ -333,7 +298,7 @@ export default function AdminProducts() {
               className="w-full bg-black/50 border border-white/20 rounded px-4 py-3 text-sm text-bone font-mono"
             />
             {loginError && <div className="text-red-400 font-mono text-xs text-center">{loginError}</div>}
-            <button type="submit" disabled={loading} className="mt-4 w-full rounded bg-volt px-4 py-3 font-display text-sm uppercase text-ink">
+            <button type="submit" disabled={loggingIn} className="mt-4 w-full rounded bg-volt px-4 py-3 font-display text-sm uppercase text-ink">
               Sign In
             </button>
           </form>

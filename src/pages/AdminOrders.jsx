@@ -1,14 +1,15 @@
 import { Fragment, useEffect, useState } from 'react';
 import AdminNav from '../components/AdminNav.jsx';
 import { API_BASE } from '../lib/api.js';
+import {
+  useAdminAuth, useNoIndex, readAdminResponse, isUnauthorized,
+} from '../hooks/useAdminAuth.js';
 
 export default function AdminOrders() {
-  const [authHeader, setAuthHeader] = useState(() => sessionStorage.getItem('adminAuth'));
-  
-  // Login form state
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState(null);
+  const {
+    authHeader, username, setUsername, password, setPassword,
+    loginError, loggingIn, login, logout,
+  } = useAdminAuth('/api/admin/orders');
 
   // Dashboard state
   const [orders, setOrders] = useState([]);
@@ -18,84 +19,38 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [expandedOrderId, setExpandedOrderId] = useState(null);
 
-  // 1. Enforce noindex dynamically so this page is hidden from search engines
-  useEffect(() => {
-    let meta = document.querySelector('meta[name="robots"]');
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.name = 'robots';
-      document.head.appendChild(meta);
-    }
-    meta.content = 'noindex, nofollow';
-    return () => { meta.content = 'index, follow'; };
-  }, []);
+  useNoIndex();
 
-  // 2. On mount, if we have a stored session, verify it and load orders
+  const handleLogout = () => {
+    logout();
+    setOrders([]);
+    setError(null);
+  };
+
+  // On mount, if we have a stored session, verify it and load orders.
   useEffect(() => {
     const stored = sessionStorage.getItem('adminAuth');
-    if (stored) {
-      setLoading(true);
-      fetch(`${API_BASE}/api/admin/orders`, { headers: { 'Authorization': stored } })
-        .then((res) => {
-          if (res.status === 401) throw new Error('401');
-          if (!res.ok) throw new Error('Server error');
-          return res.json();
-        })
-        .then((data) => {
-          setOrders(data.orders || []);
-          setLoading(false);
-        })
-        .catch((err) => {
-          if (err.message === '401') {
-            // Silently log out if stored credentials became invalid
-            handleLogout();
-          } else {
-            setError(err.message);
-          }
-          setLoading(false);
-        });
-    }
-  }, []);
+    if (!stored) return;
 
-  // 3. Handle manual login
-  const handleLogin = (e) => {
-    e.preventDefault();
-    setLoginError(null);
     setLoading(true);
-    
-    // Construct the Basic Auth header manually
-    const header = `Basic ${btoa(username + ':' + password)}`;
-    
-    fetch(`${API_BASE}/api/admin/orders`, { headers: { 'Authorization': header } })
-      .then((res) => {
-        if (res.status === 401) throw new Error('401');
-        if (!res.ok) throw new Error('Server error');
-        return res.json();
-      })
+    fetch(`${API_BASE}/api/admin/orders`, { headers: { 'Authorization': stored } })
+      .then(readAdminResponse)
       .then((data) => {
-        // Success: store credentials and show dashboard
-        sessionStorage.setItem('adminAuth', header);
-        setAuthHeader(header);
         setOrders(data.orders || []);
-        setUsername('');
-        setPassword('');
         setLoading(false);
       })
       .catch((err) => {
-        if (err.message === '401') {
-          setLoginError('Invalid credentials');
-        } else {
-          setLoginError('Server error: ' + err.message);
-        }
+        // Silently log out if stored credentials became invalid.
+        if (isUnauthorized(err)) handleLogout();
+        else setError(err.message);
         setLoading(false);
       });
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('adminAuth');
-    setAuthHeader(null);
-    setOrders([]);
-    setError(null);
+  const handleLogin = async (e) => {
+    const data = await login(e);
+    if (data) setOrders(data.orders || []);
   };
 
   const handleStatusChange = (id, newStatus) => {
@@ -169,10 +124,10 @@ export default function AdminOrders() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loggingIn}
               className="mt-4 w-full rounded bg-volt px-4 py-3 font-display text-sm uppercase tracking-wide text-ink transition-transform duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
             >
-              {loading ? 'Authenticating...' : 'Sign In'}
+              {loggingIn ? 'Authenticating...' : 'Sign In'}
             </button>
           </form>
         </div>
