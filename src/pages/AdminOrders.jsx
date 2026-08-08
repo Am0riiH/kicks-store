@@ -96,11 +96,21 @@ export default function AdminOrders() {
           </div>
 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            {/* htmlFor/id pairs: without them the <label> is only visually
+                adjacent, so a screen reader announces these as unlabelled edit
+                fields. WCAG 1.3.1 / 4.1.2. autoComplete also lets password
+                managers fill the form. */}
             <div>
-              <label className="block font-mono text-xs text-smoke uppercase tracking-widest mb-2">
+              <label
+                htmlFor="admin-username"
+                className="block font-mono text-xs text-smoke uppercase tracking-widest mb-2"
+              >
                 Username
               </label>
               <input
+                id="admin-username"
+                name="username"
+                autoComplete="username"
                 type="text"
                 required
                 value={username}
@@ -109,10 +119,16 @@ export default function AdminOrders() {
               />
             </div>
             <div>
-              <label className="block font-mono text-xs text-smoke uppercase tracking-widest mb-2">
+              <label
+                htmlFor="admin-password"
+                className="block font-mono text-xs text-smoke uppercase tracking-widest mb-2"
+              >
                 Password
               </label>
               <input
+                id="admin-password"
+                name="password"
+                autoComplete="current-password"
                 type="password"
                 required
                 value={password}
@@ -256,7 +272,7 @@ export default function AdminOrders() {
                             month: 'short', day: 'numeric', year: 'numeric' 
                           })}
                           <br/>
-                          <span className="text-[10px] text-white/30">
+                          <span className="text-[10px] text-smoke">
                             {new Date(order.created_at).toLocaleTimeString(undefined, { 
                               hour: '2-digit', minute: '2-digit' 
                             })}
@@ -291,7 +307,7 @@ export default function AdminOrders() {
                           </span>
                         </td>
                         <td className="p-4">
-                          <div className="text-xs text-white/40 truncate w-24" title={order.id}>
+                          <div className="text-xs text-smoke truncate w-24" title={order.id}>
                             {order.id}
                           </div>
                         </td>

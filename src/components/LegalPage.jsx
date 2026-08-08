@@ -30,7 +30,7 @@ export default function LegalPage({ title, eyebrow, heading, intro, updated, sec
 
       <p className="mt-8 max-w-2xl text-lg leading-relaxed text-smoke">{intro}</p>
 
-      <p className="mt-6 font-mono text-xs uppercase tracking-widest text-white/40">
+      <p className="mt-6 font-mono text-xs uppercase tracking-widest text-smoke">
         Last updated: {updated}
       </p>
 
@@ -45,7 +45,7 @@ export default function LegalPage({ title, eyebrow, heading, intro, updated, sec
 
       <p className="mt-10 text-sm text-smoke">
         Questions about this policy?{' '}
-        <a href="/contact" className="text-volt hover:underline">
+        <a href="/contact" className="text-volt underline underline-offset-2 decoration-volt/40 hover:decoration-volt">
           Contact us
         </a>
         .

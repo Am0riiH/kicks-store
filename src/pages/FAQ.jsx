@@ -56,7 +56,7 @@ export default function FAQ() {
 
       <p className="mt-10 text-smoke">
         Still stuck?{' '}
-        <a href="/contact" className="text-volt hover:underline">
+        <a href="/contact" className="text-volt underline underline-offset-2 decoration-volt/40 hover:decoration-volt">
           Contact us
         </a>
         .

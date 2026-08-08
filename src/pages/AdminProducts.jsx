@@ -286,13 +286,21 @@ export default function AdminProducts() {
           <div className="text-center mb-8">
             <h1 className="text-2xl font-display uppercase tracking-tight text-bone mb-2">Admin Login</h1>
           </div>
+          {/* A placeholder is not a label: it disappears on input and is not
+              reliably announced. Visually-hidden labels keep the compact design
+              while giving screen readers a real accessible name.
+              WCAG 1.3.1 / 3.3.2 / 4.1.2. */}
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            <label htmlFor="admin-products-username" className="sr-only">Username</label>
             <input
+              id="admin-products-username" name="username" autoComplete="username"
               type="text" required placeholder="Username" value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full bg-black/50 border border-white/20 rounded px-4 py-3 text-sm text-bone font-mono"
             />
+            <label htmlFor="admin-products-password" className="sr-only">Password</label>
             <input
+              id="admin-products-password" name="password" autoComplete="current-password"
               type="password" required placeholder="Password" value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-black/50 border border-white/20 rounded px-4 py-3 text-sm text-bone font-mono"
@@ -393,22 +401,26 @@ export default function AdminProducts() {
               </h3>
               
               <form onSubmit={handleFormSubmit} className="flex flex-col gap-4 font-mono text-sm">
+                {/* Every label is tied to its control with htmlFor/id. Visual
+                    adjacency alone gave these no accessible name, so a screen
+                    reader announced eight anonymous edit fields and an unnamed
+                    combo box. WCAG 1.3.1 / 4.1.2. */}
                 <div>
-                  <label className="block text-xs text-smoke uppercase mb-1">ID (URL slug)</label>
-                  <input required disabled={!!editingId} type="text" value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none disabled:opacity-50" />
+                  <label htmlFor="product-id" className="block text-xs text-smoke uppercase mb-1">ID (URL slug)</label>
+                  <input id="product-id" name="id" required disabled={!!editingId} type="text" value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none disabled:opacity-50" />
                 </div>
                 <div>
-                  <label className="block text-xs text-smoke uppercase mb-1">Name</label>
-                  <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                  <label htmlFor="product-name" className="block text-xs text-smoke uppercase mb-1">Name</label>
+                  <input id="product-name" name="name" required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-smoke uppercase mb-1">Colorway</label>
-                    <input type="text" value={formData.colorway} onChange={e => setFormData({...formData, colorway: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                    <label htmlFor="product-colorway" className="block text-xs text-smoke uppercase mb-1">Colorway</label>
+                    <input id="product-colorway" name="colorway" type="text" value={formData.colorway} onChange={e => setFormData({...formData, colorway: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs text-smoke uppercase mb-1">Category</label>
-                    <select required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none [&>option]:bg-zinc-900">
+                    <label htmlFor="product-category" className="block text-xs text-smoke uppercase mb-1">Category</label>
+                    <select id="product-category" name="category" required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none [&>option]:bg-zinc-900">
                       <option value="High-Top">High-Top</option>
                       <option value="Mid-Top">Mid-Top</option>
                       <option value="Low-Top">Low-Top</option>
@@ -418,17 +430,17 @@ export default function AdminProducts() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-smoke uppercase mb-1">Price ($)</label>
-                    <input required type="number" step="0.01" min="0" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                    <label htmlFor="product-price" className="block text-xs text-smoke uppercase mb-1">Price ($)</label>
+                    <input id="product-price" name="price" required type="number" step="0.01" min="0" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs text-smoke uppercase mb-1">SKU</label>
-                    <input required type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                    <label htmlFor="product-sku" className="block text-xs text-smoke uppercase mb-1">SKU</label>
+                    <input id="product-sku" name="sku" required type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-smoke uppercase mb-1">Tag (e.g. New, Limited)</label>
-                  <input type="text" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                  <label htmlFor="product-tag" className="block text-xs text-smoke uppercase mb-1">Tag (e.g. New, Limited)</label>
+                  <input id="product-tag" name="tag" type="text" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
                 </div>
                 <div>
                   <label className="block text-xs text-smoke uppercase mb-1">Product Image</label>
@@ -478,10 +490,10 @@ export default function AdminProducts() {
                 </div>
 
                 <div>
-                  <label className="block text-xs text-smoke uppercase mb-1">
-                    Image URL <span className="normal-case text-white/30">(set by upload, or paste one)</span>
+                  <label htmlFor="product-image" className="block text-xs text-smoke uppercase mb-1">
+                    Image URL <span className="normal-case text-smoke">(set by upload, or paste one)</span>
                   </label>
-                  <input required type="url" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                  <input id="product-image" name="image" required type="url" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
                 </div>
 
                 {saveError && (

@@ -236,7 +236,7 @@ function SearchModal() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="TYPE A SILHOUETTE, COLORWAY, OR CATEGORY..."
           className="w-full border-b-2 border-white/20 bg-transparent pb-4 font-display text-4xl uppercase
-            tracking-tight text-bone placeholder:text-white/20 focus:border-volt focus:outline-none sm:text-6xl"
+            tracking-tight text-bone placeholder:text-smoke focus:border-volt focus:outline-none sm:text-6xl"
         />
       </div>
 
@@ -410,7 +410,7 @@ function CartDrawer() {
           <div className="flex items-start justify-between">
             <div>
               <p className="font-display text-2xl uppercase tracking-tight">Order Receipt</p>
-              <p className="font-mono text-xs text-ink/50">
+              <p className="font-mono text-xs text-ink/70">
                 {receipt.date} · #{receipt.number}
               </p>
             </div>
@@ -427,7 +427,7 @@ function CartDrawer() {
         {/* line items */}
         <div className="flex-1 overflow-y-auto px-8 py-6">
           {items.length === 0 ? (
-            <p className="font-mono text-sm text-ink/50">Your cart is empty. Go start a drop.</p>
+            <p className="font-mono text-sm text-ink/70">Your cart is empty. Go start a drop.</p>
           ) : (
             <ul className="flex flex-col gap-5">
               {items.map((item) => (
@@ -442,13 +442,13 @@ function CartDrawer() {
                       <p className="font-display text-sm uppercase leading-tight">{item.name}</p>
                       <button
                         onClick={() => removeItem(item.variant_id)}
-                        className="font-mono text-[11px] uppercase text-ink/40 hover:text-ink"
+                        className="font-mono text-[11px] uppercase text-ink/70 hover:text-ink"
                         aria-label={`Remove ${item.name} from cart`}
                       >
                         remove
                       </button>
                     </div>
-                    <p className="font-mono text-xs text-ink/50">
+                    <p className="font-mono text-xs text-ink/70">
                       {item.colorway} · {item.size}
                     </p>
                     <div className="mt-2 flex items-center justify-between">

@@ -117,7 +117,7 @@ export default function CheckoutSuccess() {
           <p className="font-mono text-sm uppercase tracking-widest text-smoke">
             Confirming your order…
           </p>
-          <p className="font-mono text-xs text-white/30 max-w-xs">
+          <p className="font-mono text-xs text-smoke max-w-xs">
             Checking with the server — this only takes a moment.
           </p>
         </div>
@@ -161,7 +161,7 @@ export default function CheckoutSuccess() {
               Continue Shopping
             </Link>
           </div>
-          <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-white/20">
+          <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-smoke">
             🧪 Test mode — no real charge was made
           </p>
         </div>
@@ -214,7 +214,7 @@ export default function CheckoutSuccess() {
         {/* Order details card — populated from the real DB record */}
         {order && (
           <div className="w-full rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left backdrop-blur-sm">
-            <p className="mb-3 font-mono text-[10px] uppercase tracking-widest text-white/40">
+            <p className="mb-3 font-mono text-[10px] uppercase tracking-widest text-smoke">
               Order details
             </p>
             <div className="flex flex-col gap-2 font-mono text-sm">
@@ -247,7 +247,7 @@ export default function CheckoutSuccess() {
             {/* Line items */}
             {Array.isArray(order.items) && order.items.length > 0 && (
               <div className="mt-4 border-t border-white/10 pt-4">
-                <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-white/40">Items</p>
+                <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-smoke">Items</p>
                 <ul className="flex flex-col gap-1">
                   {order.items.map((item, i) => (
                     <li key={i} className="flex justify-between font-mono text-xs">
@@ -286,7 +286,7 @@ export default function CheckoutSuccess() {
           </Link>
         </div>
 
-        <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-white/20">
+        <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-smoke">
           🧪 Test mode — no real charge was made
         </p>
       </div>

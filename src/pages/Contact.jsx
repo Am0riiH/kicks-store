@@ -62,11 +62,11 @@ export default function Contact() {
         <p className="mt-3 max-w-2xl text-smoke">
           Most questions about delivery windows, return eligibility, and authenticity are already
           answered on the{' '}
-          <a href="/faq" className="text-volt hover:underline">
+          <a href="/faq" className="text-volt underline underline-offset-2 decoration-volt/40 hover:decoration-volt">
             FAQ
           </a>{' '}
           and{' '}
-          <a href="/shipping-returns" className="text-volt hover:underline">
+          <a href="/shipping-returns" className="text-volt underline underline-offset-2 decoration-volt/40 hover:decoration-volt">
             Shipping and returns
           </a>{' '}
           pages.

@@ -82,7 +82,7 @@ function PaymentMarks() {
       {['VISA', 'MC', 'PAYPAL'].map((label) => (
         <span
           key={label}
-          className="rounded border border-white/15 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white/40"
+          className="rounded border border-white/15 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-smoke"
         >
           {label}
         </span>
@@ -148,7 +148,7 @@ function NewsletterForm() {
           onChange={(e) => setEmailValue(e.target.value)}
           placeholder="you@example.com"
           disabled={busy}
-          className="min-w-0 flex-1 rounded border border-white/15 bg-white/5 px-3 py-2 text-sm text-bone placeholder:text-white/25 focus:border-volt focus:outline-none disabled:opacity-50"
+          className="min-w-0 flex-1 rounded border border-white/15 bg-white/5 px-3 py-2 text-sm text-bone placeholder:text-smoke focus:border-volt focus:outline-none disabled:opacity-50"
         />
         <button
           type="submit"
@@ -233,7 +233,7 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-14 flex flex-col gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="font-mono text-xs text-white/40">
+          <p className="font-mono text-xs text-smoke">
             © {new Date().getFullYear()} Air Jordan Drop Site. All rights reserved.
           </p>
           <PaymentMarks />
