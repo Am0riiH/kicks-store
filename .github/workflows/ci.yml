@@ -1,0 +1,55 @@
+name: CI
+
+# Every deploy so far has been verified by running tests, build and lint by
+# hand. This does the same three checks automatically so a red push is obvious
+# before it reaches Vercel or Render.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A second push to the same branch cancels the first — no point finishing a run
+# for a commit that has already been superseded.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 22.x is the LTS line and the sensible production target. Local
+      # development is on Node 24, so this run is also the cross-version check
+      # neither environment was giving us.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      # server/ has its own package.json and is NOT a workspace, so its
+      # dependencies (express, stripe, sql.js…) need a separate install. The
+      # server test project loads server/index.js through Node's own resolver,
+      # which looks in server/node_modules.
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Not `npm run lint` directly: there are known, deliberately-deferred
+      # violations, so plain eslint exits 1 and would leave CI permanently red.
+      # The ratchet fails only when the counts rise above .lintbaseline.json.
+      - name: Lint (ratchet against baseline)
+        run: node scripts/lint-baseline.mjs

@@ -1,0 +1,5 @@
+{
+  "errors": 14,
+  "warnings": 6,
+  "note": "Lint ratchet. Lower with: node scripts/lint-baseline.mjs --update"
+}
