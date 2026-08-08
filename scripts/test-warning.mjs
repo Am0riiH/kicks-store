@@ -26,7 +26,10 @@ await page.goto('http://localhost:5173/', { waitUntil: 'domcontentloaded', timeo
 
 try {
   await page.waitForFunction(() => window.__isModelLoaded === true, { timeout: 30000 });
-} catch {}
+} catch {
+  // The model may never report loaded on a slow machine. Carry on regardless —
+  // this script measures React warnings, not load success.
+}
 await new Promise(r => setTimeout(r, 3000));
 
 console.log(`\n[ProgressBridge ENABLED (fixed)] "Cannot update" warnings: ${warnings.length}`);

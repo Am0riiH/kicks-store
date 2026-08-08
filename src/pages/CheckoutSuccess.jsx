@@ -43,6 +43,19 @@ function Spinner({ className = 'h-6 w-6' }) {
   );
 }
 
+/* Background glow. Module scope, not inside the component: a component created
+   during render gets a fresh identity every render, so React unmounts and
+   remounts its whole subtree each time instead of updating it — throwing away
+   DOM state and restarting any CSS transition on the blurred layer. It closes
+   over nothing, so there is no reason for it to live inside. */
+function Glow({ color = 'volt' }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+      <div className={`h-[480px] w-[480px] rounded-full ${color === 'volt' ? 'bg-volt/10' : 'bg-white/5'} blur-[120px]`} />
+    </div>
+  );
+}
+
 export default function CheckoutSuccess() {
   const { clearCart }      = useCart();
   const [searchParams]     = useSearchParams();
@@ -93,13 +106,6 @@ export default function CheckoutSuccess() {
   useEffect(() => {
     confirmOrder();
   }, [confirmOrder]);
-
-  // ─── Background glow (shared) ──────────────────────────────────────────────
-  const Glow = ({ color = 'volt' }) => (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
-      <div className={`h-[480px] w-[480px] rounded-full ${color === 'volt' ? 'bg-volt/10' : 'bg-white/5'} blur-[120px]`} />
-    </div>
-  );
 
   // ─── Loading state ────────────────────────────────────────────────────────
   if (state === 'loading') {

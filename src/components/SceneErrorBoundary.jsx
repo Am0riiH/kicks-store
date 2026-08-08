@@ -15,7 +15,9 @@ export default class SceneErrorBoundary extends React.Component {
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error) {
+  // React passes the error here; this boundary only needs to know that one
+  // happened. Underscore-prefixed to mark it intentionally unused.
+  static getDerivedStateFromError(_error) {
     return { hasError: true };
   }
 

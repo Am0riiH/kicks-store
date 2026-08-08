@@ -12,7 +12,6 @@ export default function ProductCard({ product, featured = false }) {
   const { items, addItem } = useCart();
   const navigate = useNavigate();
   const {
-    variants,
     selectedColor,
     setSelectedColor,
     selectedVariant,

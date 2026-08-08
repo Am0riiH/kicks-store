@@ -5,6 +5,12 @@ import ProductCard from './ProductCard.jsx';
 import { thumbUrl } from '../lib/imageUrl.js';
 import { API_BASE } from '../lib/api.js';
 
+/* Module scope so the reference is stable. Declared inside Navbar it was a new
+   array every render, which is why the useCallback below listed it as a missing
+   dependency — adding it there would have rebuilt the callback on every render
+   and defeated the memo. It is a constant; it belongs out here. */
+const VOLT_COLORS = ['#d7ff3e', '#ffffff', '#ff3e6c', '#3effcd', '#ffe03e'];
+
 /* ---------------------------------------------------------
    Small inline icon set (no external icon lib needed)
 --------------------------------------------------------- */
@@ -44,7 +50,6 @@ function MenuIcon(props) {
    Mobile full-screen nav drawer
 --------------------------------------------------------- */
 function MobileNavDrawer({ isOpen, onClose }) {
-  const navigate = useNavigate ? undefined : undefined; // Link handles routing
   const { setCartOpen, setSearchOpen } = useCart();
 
   // Close on Escape key
@@ -156,7 +161,7 @@ function PaymentIcons() {
    Fullscreen Search Modal
 --------------------------------------------------------- */
 function SearchModal() {
-  const { isSearchOpen, setSearchOpen, addItem } = useCart();
+  const { isSearchOpen, setSearchOpen } = useCart();
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -371,6 +376,20 @@ function CartDrawer() {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isCartOpen, setCartOpen]);
 
+  /* Decorative receipt header. Computed once rather than inline in the JSX:
+     Math.random() and new Date() are impure, so rendering them directly gave a
+     different "receipt number" on every re-render — adding an item silently
+     renumbered the receipt the customer was looking at. Neither value is used
+     for anything real; the actual order id comes from Stripe after checkout. */
+  const [receipt] = useState(() => ({
+    date: new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }),
+    number: Math.floor(100000 + Math.random() * 900000),
+  }));
+
   return (
     <>
       {/* backdrop */}
@@ -392,12 +411,7 @@ function CartDrawer() {
             <div>
               <p className="font-display text-2xl uppercase tracking-tight">Order Receipt</p>
               <p className="font-mono text-xs text-ink/50">
-                {new Date().toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                })}{' '}
-                · #{Math.floor(100000 + Math.random() * 900000)}
+                {receipt.date} · #{receipt.number}
               </p>
             </div>
             <button
@@ -507,8 +521,6 @@ export default function Navbar() {
   const eggClicksRef = useRef(0);
   const eggTimerRef  = useRef(null);
 
-  const VOLT_COLORS = ['#d7ff3e', '#ffffff', '#ff3e6c', '#3effcd', '#ffe03e'];
-
   const fireParticles = useCallback((anchorEl) => {
     const rect = anchorEl.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
@@ -535,7 +547,7 @@ export default function Navbar() {
     }
   }, []);
 
-  const handleLogoEasterEgg = useCallback((e) => {
+  const handleLogoEasterEgg = useCallback(() => {
     // Always reset the debounce timer
     clearTimeout(eggTimerRef.current);
     eggClicksRef.current += 1;

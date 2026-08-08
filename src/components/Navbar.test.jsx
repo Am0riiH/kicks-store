@@ -118,6 +118,29 @@ describe('cart drawer', () => {
     );
   });
 
+  it('keeps the decorative receipt number stable across re-renders', async () => {
+    const user = userEvent.setup();
+    seedCart([item()]);
+    mockFetch({});
+    renderNavbar();
+    await openDrawer(user);
+
+    const readReceipt = () =>
+      screen.getByText(/^\w{3} \d{1,2}, \d{4} · #\d{6}$/).textContent;
+
+    const before = readReceipt();
+
+    // Any cart mutation re-renders the drawer. The number is generated with
+    // Math.random(), which used to run inline in the JSX — so it changed on
+    // every render and the customer watched their receipt renumber itself.
+    await user.click(screen.getByLabelText('Increase quantity for Chicago'));
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem('cart'))[0].qty).toBe(2)
+    );
+
+    expect(readReceipt()).toBe(before);
+  });
+
   it('closes on Escape', async () => {
     const user = userEvent.setup();
     mockFetch({});

@@ -19,7 +19,6 @@ export default function ProductDetail() {
 
   const { items, addItem } = useCart();
   const {
-    variants,
     selectedColor,
     setSelectedColor,
     selectedVariant,
