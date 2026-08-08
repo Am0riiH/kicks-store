@@ -129,9 +129,14 @@ app.post(
       case 'checkout.session.completed': {
         const session = event.data.object;
 
+        // Deliberately NOT dumping the whole session object here. It carries
+        // customer_details (email, name, phone) and shipping_details (full
+        // postal address), so logging it wrote buyer PII into the platform logs
+        // on every order — the same class of leak the /api/order-status
+        // whitelist exists to prevent. The individual lines below cover what is
+        // actually useful for debugging.
         console.log('\n✅  checkout.session.completed received');
         console.log('    ─────────────────────────────────────');
-        console.log('Webhook session object:', JSON.stringify(session, null, 2));
         console.log(`    Session ID    : ${session.id}`);
         console.log(`    Payment status: ${session.payment_status}`);
         console.log(`    Amount total  : $${(session.amount_total / 100).toFixed(2)} ${session.currency.toUpperCase()}`);
