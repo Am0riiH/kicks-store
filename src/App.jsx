@@ -6,23 +6,37 @@ import SceneErrorBoundary from './components/SceneErrorBoundary.jsx';
 const SceneCanvas = React.lazy(() => import('./components/SceneCanvas.jsx'));
 import Navbar from './components/Navbar.jsx';
 import Footer from './components/Footer.jsx';
-import Home from './pages/Home.jsx';
-import Store from './pages/Store.jsx';
-import Categories from './pages/Categories.jsx';
-import ProductDetail from './pages/ProductDetail.jsx';
-import About from './pages/About.jsx';
-import Contact from './pages/Contact.jsx';
-import FAQ from './pages/FAQ.jsx';
-import PrivacyPolicy from './pages/PrivacyPolicy.jsx';
-import TermsOfService from './pages/TermsOfService.jsx';
-import ShippingReturns from './pages/ShippingReturns.jsx';
-import CheckoutSuccess from './pages/CheckoutSuccess.jsx';
-import CheckoutCancel from './pages/CheckoutCancel.jsx';
-import AdminOrders from './pages/AdminOrders.jsx';
-import AdminProducts from './pages/AdminProducts.jsx';
 import GrainOverlay from './components/GrainOverlay.jsx';
 import InstallPrompt from './components/InstallPrompt.jsx';
 import { useSmoothScroll } from './hooks/useSmoothScroll.js';
+
+/* Eager: the three routes a visitor is most likely to LAND on directly.
+   Splitting these trades a smaller bundle for a round trip on the critical
+   path, which measured worse — lazy-loading ProductDetail cost 20 Lighthouse
+   points (71 -> 51) and pushed CLS from 0 to 0.473, because the Suspense
+   fallback resizes when the real page swaps in. Product pages are shared and
+   linked directly, so they are a landing page, not a second hop. */
+import Home from './pages/Home.jsx';
+import Store from './pages/Store.jsx';
+import ProductDetail from './pages/ProductDetail.jsx';
+
+/* Lazy: everything else. The admin pages matter most here — they carry their
+   own forms, the variants manager and the Cloudinary upload hook, and were
+   shipping to every shopper despite being reachable by almost nobody. The
+   legal/marketing pages are static markup that most visitors never open, and
+   the checkout result pages are only reached after a Stripe redirect, by which
+   point a round trip has already happened. */
+const Categories = React.lazy(() => import('./pages/Categories.jsx'));
+const About = React.lazy(() => import('./pages/About.jsx'));
+const Contact = React.lazy(() => import('./pages/Contact.jsx'));
+const FAQ = React.lazy(() => import('./pages/FAQ.jsx'));
+const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy.jsx'));
+const TermsOfService = React.lazy(() => import('./pages/TermsOfService.jsx'));
+const ShippingReturns = React.lazy(() => import('./pages/ShippingReturns.jsx'));
+const CheckoutSuccess = React.lazy(() => import('./pages/CheckoutSuccess.jsx'));
+const CheckoutCancel = React.lazy(() => import('./pages/CheckoutCancel.jsx'));
+const AdminOrders = React.lazy(() => import('./pages/AdminOrders.jsx'));
+const AdminProducts = React.lazy(() => import('./pages/AdminProducts.jsx'));
 
 export default function App() {
   const location = useLocation();
@@ -73,6 +87,12 @@ export default function App() {
       <div className="relative min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1">
+          {/* Lazily-loaded routes need a boundary. The fallback is a plain
+              spacer rather than a spinner: these chunks are a few KB and
+              resolve in a frame or two on a warm connection, so a spinner
+              would flash more distractingly than empty space. min-h keeps the
+              footer from jumping up during the swap. */}
+          <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<Home />} />
             <Route path="/store" element={<Store />} />
@@ -89,6 +109,7 @@ export default function App() {
             <Route path="/admin/orders"     element={<AdminOrders />} />
             <Route path="/admin/products"   element={<AdminProducts />} />
           </Routes>
+          </Suspense>
         </main>
         {/* main is flex-1, so the footer is pushed to the bottom on short pages
             without needing any sticky-footer workaround. */}
