@@ -46,6 +46,21 @@ if (!process.env.STRIPE_SECRET_KEY) {
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const app    = express();
 
+/* Render terminates TLS at its own proxy and forwards to this process, so
+   without this every request arrives from the SAME socket address — the proxy.
+   express-rate-limit then keys every visitor into ONE bucket:
+     - the 100-req/15min general limit becomes a global cap shared by all users
+     - the 5-failed-login admin lockout becomes global, so one attacker (or one
+       mistyped password) locks every admin out for 15 minutes
+   Verified locally: the remaining-requests counter decremented 99→98→97→96
+   across four different X-Forwarded-For values, i.e. the header was ignored.
+
+   The value is 1, not `true`. `true` trusts the whole X-Forwarded-For chain,
+   which lets a client prepend an arbitrary address and get a fresh bucket per
+   request — evading rate limiting entirely. 1 trusts exactly one hop, which is
+   Render's proxy and nothing further. */
+app.set('trust proxy', 1);
+
 // Apply Helmet security headers
 app.use(helmet({
   // Since this is a cross-origin API for the frontend, we need to allow cross-origin resource sharing
