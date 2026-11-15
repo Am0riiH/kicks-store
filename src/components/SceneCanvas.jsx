@@ -4,39 +4,12 @@ import ShoeModel from './ShoeModel.jsx';
 import ProgressBridge from './ProgressBridge.jsx';
 import { useScene } from '../context/SceneContext.jsx';
 
-/**
- * The ONE 3D canvas for the whole app. Mounted once in App.jsx, outside
- * <Routes>, so it never unmounts on navigation. Fixed + pointer-events:none
- * so it sits behind every page as ambient scenery, while GSAP (driven from
- * Home.jsx) reaches into shoeGroupRef to choreograph the shoe.
- *
- * Camera FOV is responsive: wider on mobile so the shoe never appears cropped.
- *   mobile  (<640px)   → fov 55
- *   tablet  (640-1023) → fov 45
- *   desktop (1024px+)  → fov 40
- *
- * Render quality is also adaptive:
- *   mobile (≤768px): dpr capped at 1.5, antialias off, shadows off,
- *                    ContactShadows skipped — cuts GPU fillrate load
- *                    significantly on phone GPUs.
- *   desktop (>768px): unchanged — full quality, dpr up to 2, MSAA, shadows.
- *
- * The 768px threshold is wider than the layout breakpoint (640px) so that
- * mid-range tablets also benefit from the reduced GPU budget.
- */
-
 function getResponsiveFov(width) {
-  if (width < 640)  return 55;
+  if (width < 640) return 55;
   if (width < 1024) return 45;
   return 40;
 }
 
-/**
- * Detected once at module load time (before any React rendering).
- * We intentionally avoid making this reactive — render quality is chosen
- * at page-load based on the primary device type and doesn't need to
- * change dynamically when a user resizes a browser window.
- */
 const isMobile = window.innerWidth <= 768;
 
 export default function SceneCanvas() {
@@ -64,7 +37,7 @@ export default function SceneCanvas() {
         height: '100vh',
         zIndex: 0,
         pointerEvents: 'none',
-        opacity: 0, // starts hidden, crossfaded in by Home.jsx when ready
+        opacity: 0,
       }}
     >
       <Canvas
@@ -75,14 +48,8 @@ export default function SceneCanvas() {
         gl={{ antialias: !isMobile, alpha: true }}
       >
         <ambientLight intensity={0.8} />
-        {/* castShadow on the light only matters when the Canvas shadow map is
-            enabled (desktop). On mobile shadows={false} already disables the
-            shadow render pass, but we mirror the flag here for clarity. */}
-        <directionalLight
-          position={[4, 6, 4]}
-          intensity={1.4}
-          castShadow={!isMobile}
-        />
+
+        <directionalLight position={[4, 6, 4]} intensity={1.4} castShadow={!isMobile} />
         <spotLight
           position={[-4, 3, -2]}
           angle={0.4}
@@ -91,12 +58,9 @@ export default function SceneCanvas() {
           color="#D7FF3E"
         />
 
-        {/* Reports real XHR progress to SceneContext — must be outside
-            Suspense so it runs while the GLB is still downloading. */}
         <ProgressBridge />
 
         <Suspense fallback={null}>
-          {/* start off-screen top; Phase 0 GSAP timeline drops it in */}
           <ShoeModel
             ref={shoeGroupRef}
             onLoad={() => setModelLoaded(true)}

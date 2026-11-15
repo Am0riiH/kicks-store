@@ -5,9 +5,6 @@ import { useProductVariants } from '../hooks/useProductVariants.js';
 import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
 import { API_BASE } from '../lib/api.js';
 
-/* Module-level so the reference is stable across renders. useProductVariants
-   lists the preloaded array in an effect dependency, so a fresh [] literal on
-   every render would re-fire that effect in a loop. */
 const NO_VARIANTS = [];
 
 export default function ProductDetail() {
@@ -27,34 +24,21 @@ export default function ProductDetail() {
     sizesForColor,
     isSoldOut,
     isSelectedVariantOut,
-    loading: loadingVariants
-    // Three-state contract: `undefined` makes the hook fetch for itself, `null`
-    // means "a caller IS supplying these but hasn't loaded them yet", an array
-    // is used as-is. /api/products/:id embeds variants, so the loaded array is
-    // passed straight through and the hook never fires its own request — that
-    // is what keeps this page at one request instead of two.
-    //
-    // The condition is deliberately `loadingProduct`, not `product`. `null`
-    // means "still fetching", so it has to stop the moment our fetch settles —
-    // whatever the outcome. Keying it off `product` instead meant a failed
-    // fetch kept saying "wait" forever: the hook has no way to know the parent
-    // gave up, loadingVariants stayed true, and the loading gate below shadowed
-    // the Product Not Found branch entirely. Keying off loadingProduct resolves
-    // success, error and a 200 carrying no product identically.
-  } = useProductVariants(id, loadingProduct ? null : (product?.variants || NO_VARIANTS));
+    loading: loadingVariants,
+  } = useProductVariants(id, loadingProduct ? null : product?.variants || NO_VARIANTS);
 
   useEffect(() => {
     setLoadingProduct(true);
     fetch(`${API_BASE}/api/products/${id}`)
-      .then(res => {
+      .then((res) => {
         if (!res.ok) throw new Error('Product not found');
         return res.json();
       })
-      .then(data => {
+      .then((data) => {
         setProduct(data.product);
         setLoadingProduct(false);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error(err);
         setError(err.message);
         setLoadingProduct(false);
@@ -63,7 +47,6 @@ export default function ProductDetail() {
 
   useDocumentTitle(product ? `${product.name} | Sneakers` : 'Loading... | Sneakers');
 
-  // Reset quantity when variant changes
   useEffect(() => {
     setQuantity(1);
   }, [selectedVariant]);
@@ -71,7 +54,9 @@ export default function ProductDetail() {
   if (loadingProduct || loadingVariants) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <div className="font-mono text-volt animate-pulse">Loading product details...</div>
+        <div className="font-mono text-volt animate-pulse">
+          Loading product details...
+        </div>
       </div>
     );
   }
@@ -80,8 +65,13 @@ export default function ProductDetail() {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-center px-4">
         <h2 className="font-display text-4xl text-bone">Product Not Found</h2>
-        <p className="font-mono text-smoke">The product you're looking for doesn't exist or has been removed.</p>
-        <Link to="/store" className="mt-4 px-6 py-2 bg-volt text-ink font-display uppercase tracking-wider rounded-full hover:scale-105 transition-transform">
+        <p className="font-mono text-smoke">
+          The product you're looking for doesn't exist or has been removed.
+        </p>
+        <Link
+          to="/store"
+          className="mt-4 px-6 py-2 bg-volt text-ink font-display uppercase tracking-wider rounded-full hover:scale-105 transition-transform"
+        >
           Back to Store
         </Link>
       </div>
@@ -90,23 +80,27 @@ export default function ProductDetail() {
 
   const handleAdd = () => {
     if (isSoldOut || !selectedVariant || isSelectedVariantOut) return;
-    
-    // Check if adding exceeds available stock
-    const cartItem = items.find(i => i.variant_id === selectedVariant.id);
+
+    const cartItem = items.find((i) => i.variant_id === selectedVariant.id);
     const currentCartQty = cartItem ? cartItem.qty : 0;
-    
+
     if (currentCartQty + quantity > selectedVariant.quantity) {
-      alert(`Only ${selectedVariant.quantity} left in stock. You already have ${currentCartQty} in cart.`);
+      alert(
+        `Only ${selectedVariant.quantity} left in stock. You already have ${currentCartQty} in cart.`
+      );
       return;
     }
 
-    addItem({ 
-      ...product, 
-      variant_id: selectedVariant.id, 
-      size: selectedVariant.size, 
-      colorway: selectedVariant.color,
-      max_qty: selectedVariant.quantity
-    }, quantity);
+    addItem(
+      {
+        ...product,
+        variant_id: selectedVariant.id,
+        size: selectedVariant.size,
+        colorway: selectedVariant.color,
+        max_qty: selectedVariant.quantity,
+      },
+      quantity
+    );
   };
 
   const handleQtyChange = (delta) => {
@@ -119,13 +113,15 @@ export default function ProductDetail() {
   return (
     <div className="container mx-auto px-4 py-12 md:py-24 max-w-6xl">
       <div className="mb-8">
-        <Link to="/store" className="font-mono text-sm text-smoke hover:text-volt transition-colors">
+        <Link
+          to="/store"
+          className="font-mono text-sm text-smoke hover:text-volt transition-colors"
+        >
           ← Back to Store
         </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-24">
-        {/* Left: Image Gallery */}
         <div className="relative aspect-square w-full rounded-3xl overflow-hidden bg-ink border border-white/10">
           <img
             src={product.image}
@@ -146,7 +142,6 @@ export default function ProductDetail() {
           )}
         </div>
 
-        {/* Right: Product Details */}
         <div className="flex flex-col justify-center">
           <div className="mb-2 font-mono text-sm text-smoke uppercase tracking-widest">
             {product.sku || 'N/A'}
@@ -154,36 +149,36 @@ export default function ProductDetail() {
           <h1 className="font-display text-5xl md:text-6xl text-bone uppercase leading-none tracking-tight mb-4">
             {product.name}
           </h1>
-          
+
           <div className="font-mono text-3xl font-bold text-volt mb-8">
             ${product.price.toFixed(2)}
           </div>
 
           <div className="prose prose-invert prose-p:text-smoke mb-10 max-w-none">
             <p>
-              {product.description || 
-               "Experience the perfect blend of heritage design and modern comfort. These sneakers feature premium materials, responsive cushioning, and the iconic styling that has defined sneaker culture for decades. Whether on the court or the streets, they deliver unmatched performance and bold aesthetics."}
+              {product.description ||
+                'Experience the perfect blend of heritage design and modern comfort. These sneakers feature premium materials, responsive cushioning, and the iconic styling that has defined sneaker culture for decades. Whether on the court or the streets, they deliver unmatched performance and bold aesthetics.'}
             </p>
           </div>
 
-          {/* Configuration */}
           <div className="space-y-8 bg-graphite/30 p-6 rounded-2xl border border-white/5">
-            {/* Color Selection */}
             {availableColors.length > 0 && (
               <div>
                 <h3 className="font-mono text-sm text-bone mb-3 uppercase tracking-wider">
                   Color: <span className="text-smoke normal-case">{selectedColor}</span>
                 </h3>
                 <div className="flex flex-wrap gap-3">
-                  {availableColors.map(color => (
+                  {availableColors.map((color) => (
                     <button
                       key={color}
                       onClick={() => setSelectedColor(color)}
                       disabled={isSoldOut}
                       className={`text-sm px-4 py-2 rounded border font-mono transition-colors
-                        ${selectedColor === color 
-                          ? 'bg-volt text-ink border-volt font-bold shadow-[0_0_15px_rgba(215,255,62,0.3)]' 
-                          : 'bg-black/50 text-smoke border-white/20 hover:border-white/50 hover:text-bone'}`}
+                        ${
+                          selectedColor === color
+                            ? 'bg-volt text-ink border-volt font-bold shadow-[0_0_15px_rgba(215,255,62,0.3)]'
+                            : 'bg-black/50 text-smoke border-white/20 hover:border-white/50 hover:text-bone'
+                        }`}
                     >
                       {color}
                     </button>
@@ -192,31 +187,32 @@ export default function ProductDetail() {
               </div>
             )}
 
-            {/* Size Selection */}
             {sizesForColor.length > 0 && (
               <div>
                 <h3 className="font-mono text-sm text-bone mb-3 uppercase tracking-wider flex justify-between">
                   <span>Size</span>
                   {selectedVariant && (
                     <span className="text-smoke normal-case">
-                      {selectedVariant.quantity > 0 
-                        ? `${selectedVariant.quantity} in stock` 
+                      {selectedVariant.quantity > 0
+                        ? `${selectedVariant.quantity} in stock`
                         : 'Out of stock'}
                     </span>
                   )}
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                  {sizesForColor.map(v => (
+                  {sizesForColor.map((v) => (
                     <button
                       key={v.id}
                       disabled={v.quantity === 0 || isSoldOut}
                       onClick={() => setSelectedVariant(v)}
                       className={`font-mono py-3 rounded transition-all duration-200
-                        ${v.quantity === 0 
-                          ? 'opacity-30 line-through cursor-not-allowed border border-white/10 text-smoke bg-black/20' 
-                          : selectedVariant?.id === v.id 
-                            ? 'bg-white text-ink font-bold shadow-lg scale-105' 
-                            : 'bg-black/40 text-bone border border-white/10 hover:bg-white/10 hover:border-white/30'}
+                        ${
+                          v.quantity === 0
+                            ? 'opacity-30 line-through cursor-not-allowed border border-white/10 text-smoke bg-black/20'
+                            : selectedVariant?.id === v.id
+                              ? 'bg-white text-ink font-bold shadow-lg scale-105'
+                              : 'bg-black/40 text-bone border border-white/10 hover:bg-white/10 hover:border-white/30'
+                        }
                       `}
                     >
                       {v.size}
@@ -226,23 +222,27 @@ export default function ProductDetail() {
               </div>
             )}
 
-            {/* Add to Cart Actions */}
             <div className="pt-4 flex flex-col sm:flex-row gap-4 items-end">
-              {/* Quantity Selector */}
               <div className="flex flex-col gap-2 w-full sm:w-auto">
-                <label className="font-mono text-xs text-smoke uppercase tracking-wider">Quantity</label>
+                <label className="font-mono text-xs text-smoke uppercase tracking-wider">
+                  Quantity
+                </label>
                 <div className="flex items-center bg-black/50 border border-white/20 rounded-full p-1 w-full sm:w-32 justify-between">
-                  <button 
-                    onClick={() => handleQtyChange(-1)} 
+                  <button
+                    onClick={() => handleQtyChange(-1)}
                     disabled={quantity <= 1 || isSoldOut}
                     className="w-10 h-10 rounded-full flex items-center justify-center text-smoke hover:bg-white/10 hover:text-bone disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     -
                   </button>
                   <span className="font-mono text-bone font-bold">{quantity}</span>
-                  <button 
-                    onClick={() => handleQtyChange(1)} 
-                    disabled={!selectedVariant || quantity >= selectedVariant.quantity || isSoldOut}
+                  <button
+                    onClick={() => handleQtyChange(1)}
+                    disabled={
+                      !selectedVariant ||
+                      quantity >= selectedVariant.quantity ||
+                      isSoldOut
+                    }
                     className="w-10 h-10 rounded-full flex items-center justify-center text-smoke hover:bg-white/10 hover:text-bone disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     +
@@ -250,7 +250,6 @@ export default function ProductDetail() {
                 </div>
               </div>
 
-              {/* Add Button */}
               <button
                 onClick={handleAdd}
                 disabled={isSoldOut || isSelectedVariantOut}
@@ -259,7 +258,11 @@ export default function ProductDetail() {
                   disabled:opacity-30 disabled:hover:scale-100 disabled:cursor-not-allowed
                   shadow-[0_0_20px_rgba(215,255,62,0.2)] hover:shadow-[0_0_30px_rgba(215,255,62,0.4)]"
               >
-                {isSoldOut ? 'Sold Out' : (isSelectedVariantOut ? 'Select Size' : 'Add to Cart')}
+                {isSoldOut
+                  ? 'Sold Out'
+                  : isSelectedVariantOut
+                    ? 'Select Size'
+                    : 'Add to Cart'}
               </button>
             </div>
           </div>

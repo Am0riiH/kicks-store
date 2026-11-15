@@ -2,9 +2,6 @@ import { useState, useEffect } from 'react';
 
 const DISMISS_KEY = 'install-prompt-dismissed';
 
-/* localStorage throws in Safari private mode and wherever storage is blocked.
-   Since this component now targets iOS specifically, every access is guarded —
-   a storage failure should degrade to "show the prompt again", never a crash. */
 function wasDismissed() {
   try {
     return localStorage.getItem(DISMISS_KEY) === '1';
@@ -17,19 +14,16 @@ function rememberDismissal() {
   try {
     localStorage.setItem(DISMISS_KEY, '1');
   } catch {
-    /* storage unavailable — the prompt will simply reappear next visit */
+    // storage unavailable (private mode)
   }
 }
 
-/* iPadOS 13+ reports a desktop "Macintosh" user agent, so the touch-point check
-   is required to catch iPads that would otherwise be mistaken for macOS. */
 function isIOS() {
   const ua = window.navigator.userAgent;
   if (/iPhone|iPad|iPod/.test(ua)) return true;
   return /Macintosh/.test(ua) && window.navigator.maxTouchPoints > 1;
 }
 
-/* navigator.standalone is the iOS-only signal; display-mode covers everything else. */
 function isStandalone() {
   return (
     window.navigator.standalone === true ||
@@ -62,12 +56,8 @@ export default function InstallPrompt() {
   const [iosMode, setIosMode] = useState(false);
 
   useEffect(() => {
-    // Already installed, or the user has told us to go away before.
     if (isStandalone() || wasDismissed()) return;
 
-    /* iOS never fires beforeinstallprompt — every iOS browser is WebKit and
-       Apple has not implemented it — so manual Add-to-Home-Screen instructions
-       are the only install affordance available there. */
     if (isIOS()) {
       setIosMode(true);
       setShowPrompt(true);
@@ -77,13 +67,11 @@ export default function InstallPrompt() {
     const handleBeforeInstallPrompt = (e) => {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
-      // Stash the event so it can be triggered later
+
       setDeferredPrompt(e);
       setShowPrompt(true);
     };
 
-    // Fires when the app is installed by any route — including Chrome's own
-    // omnibox/menu affordance — so the card must not linger afterwards.
     const handleAppInstalled = () => {
       setShowPrompt(false);
       setDeferredPrompt(null);
@@ -101,18 +89,12 @@ export default function InstallPrompt() {
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
 
-    // Show the install prompt
     deferredPrompt.prompt();
 
-    // Wait for the user to respond to the prompt
     const { outcome } = await deferredPrompt.userChoice;
 
-    /* Declining the native dialog is as deliberate as clicking our own dismiss
-       button, so it earns the same persistence. On 'accepted' we stay silent —
-       the appinstalled listener handles teardown. */
     if (outcome === 'dismissed') rememberDismissal();
 
-    // We've used the prompt, and can't use it again, throw it away
     setDeferredPrompt(null);
     setShowPrompt(false);
   };
@@ -131,10 +113,17 @@ export default function InstallPrompt() {
       className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 bg-graphite text-bone z-50 p-4 rounded-xl shadow-2xl border border-white/10 flex flex-col gap-3"
     >
       <div className="flex justify-between items-start">
-        <h3 id="install-prompt-title" className="font-display text-volt uppercase text-lg">
+        <h3
+          id="install-prompt-title"
+          className="font-display text-volt uppercase text-lg"
+        >
           Install App
         </h3>
-        <button onClick={handleDismiss} className="text-smoke hover:text-white" aria-label="Dismiss">
+        <button
+          onClick={handleDismiss}
+          className="text-smoke hover:text-white"
+          aria-label="Dismiss"
+        >
           &times;
         </button>
       </div>
@@ -142,7 +131,7 @@ export default function InstallPrompt() {
       {iosMode ? (
         <>
           <p className="text-sm text-smoke">
-            Add the Air Jordan Drop Site to your home screen: tap{' '}
+            Add the Sneakers Drop Site to your home screen: tap{' '}
             <ShareIcon className="inline-block h-4 w-4 align-text-bottom text-volt" />
             <span className="sr-only">Share</span> in the toolbar, then choose{' '}
             <span className="text-bone">Add to Home Screen</span>.
@@ -159,7 +148,7 @@ export default function InstallPrompt() {
       ) : (
         <>
           <p className="text-sm text-smoke">
-            Install the Air Jordan Drop Site to your home screen for quick access.
+            Install the Sneakers Drop Site to your home screen for quick access.
           </p>
           <div className="flex gap-2 justify-end mt-2">
             <button

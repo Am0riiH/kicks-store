@@ -1,9 +1,5 @@
 import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
 
-/* PLACEHOLDER COPY — demo content for a portfolio build.
-   Every timeframe, fee, and policy below is illustrative. Replace with the
-   real operational answers before launch. */
-
 const FAQS = [
   {
     q: 'How do you authenticate pairs?',
@@ -32,7 +28,9 @@ export default function FAQ() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-20 sm:px-10">
-      <span className="font-mono text-xs uppercase tracking-widest text-volt">Answers</span>
+      <span className="font-mono text-xs uppercase tracking-widest text-volt">
+        Answers
+      </span>
       <h1 className="mt-2 font-display text-5xl uppercase leading-[0.95] text-bone sm:text-7xl">
         Frequently
         <br />
@@ -40,7 +38,8 @@ export default function FAQ() {
       </h1>
 
       <p className="mt-8 max-w-2xl text-lg leading-relaxed text-smoke">
-        The questions we get most. If yours is not here, support answers within one business day.
+        The questions we get most. If yours is not here, support answers within one
+        business day.
       </p>
 
       <dl className="mt-14 flex flex-col divide-y divide-white/10 border-y border-white/10">
@@ -56,7 +55,10 @@ export default function FAQ() {
 
       <p className="mt-10 text-smoke">
         Still stuck?{' '}
-        <a href="/contact" className="text-volt underline underline-offset-2 decoration-volt/40 hover:decoration-volt">
+        <a
+          href="/contact"
+          className="text-volt underline underline-offset-2 decoration-volt/40 hover:decoration-volt"
+        >
           Contact us
         </a>
         .

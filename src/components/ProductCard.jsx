@@ -2,12 +2,6 @@ import { useCart } from '../context/CartContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useProductVariants } from '../hooks/useProductVariants.js';
 
-/**
- * ProductCard
- * Bold, youthful card used in Store, Categories, Search results, and the
- * Home "Scroll 3" reveal. Pass `featured` for the larger hero treatment
- * used on the Home page.
- */
 export default function ProductCard({ product, featured = false }) {
   const { items, addItem } = useCart();
   const navigate = useNavigate();
@@ -19,28 +13,25 @@ export default function ProductCard({ product, featured = false }) {
     availableColors,
     sizesForColor,
     isSoldOut,
-    isSelectedVariantOut
-    // /api/products embeds variants, so each card reuses them instead of
-    // firing its own request — this is what removes the N+1 on /store.
+    isSelectedVariantOut,
   } = useProductVariants(product.id, product.variants);
 
   const handleAdd = (e) => {
     e.stopPropagation();
     if (isSoldOut || !selectedVariant || isSelectedVariantOut) return;
-    
-    // Check if adding one more exceeds available stock
-    const cartItem = items.find(i => i.variant_id === selectedVariant.id);
+
+    const cartItem = items.find((i) => i.variant_id === selectedVariant.id);
     if (cartItem && cartItem.qty >= selectedVariant.quantity) {
       alert(`Only ${selectedVariant.quantity} left in stock for this size/color.`);
       return;
     }
 
-    addItem({ 
-      ...product, 
-      variant_id: selectedVariant.id, 
-      size: selectedVariant.size, 
+    addItem({
+      ...product,
+      variant_id: selectedVariant.id,
+      size: selectedVariant.size,
       colorway: selectedVariant.color,
-      max_qty: selectedVariant.quantity
+      max_qty: selectedVariant.quantity,
     });
   };
 
@@ -57,14 +48,12 @@ export default function ProductCard({ product, featured = false }) {
         ${featured ? 'w-full max-w-sm' : 'w-full'}
         ${isSoldOut ? 'opacity-80 grayscale' : ''}`}
     >
-      {/* tag */}
       {product.tag && !isSoldOut && (
         <div className="absolute left-4 top-4 z-10 rounded-full bg-volt px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ink">
           {product.tag}
         </div>
       )}
 
-      {/* image */}
       <div className="relative aspect-square w-full overflow-hidden bg-ink">
         <img
           src={product.image}
@@ -73,8 +62,7 @@ export default function ProductCard({ product, featured = false }) {
           loading="lazy"
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-graphite via-transparent to-transparent" />
-        
-        {/* SOLD OUT OVERLAY */}
+
         {isSoldOut && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-20">
             <span className="font-display text-4xl text-red-500 border-4 border-red-500 px-6 py-2 -rotate-12 uppercase tracking-widest">
@@ -84,7 +72,6 @@ export default function ProductCard({ product, featured = false }) {
         )}
       </div>
 
-      {/* body */}
       <div className="flex flex-1 flex-col gap-1 p-5">
         <span className="font-mono text-[11px] uppercase tracking-widest text-smoke">
           {product.sku}
@@ -92,12 +79,12 @@ export default function ProductCard({ product, featured = false }) {
         <h3 className="font-display text-xl uppercase leading-none tracking-tight text-bone">
           {product.name}
         </h3>
-        
+
         {availableColors.length <= 1 ? (
           <p className="text-sm text-smoke">{product.colorway}</p>
         ) : (
           <div className="flex flex-wrap gap-2 mt-2">
-            {availableColors.map(color => (
+            {availableColors.map((color) => (
               <button
                 key={color}
                 onClick={(e) => {
@@ -113,10 +100,9 @@ export default function ProductCard({ product, featured = false }) {
           </div>
         )}
 
-        {/* Size Selector */}
         {sizesForColor.length > 0 && (
           <div className="mt-3 grid grid-cols-4 gap-1">
-            {sizesForColor.map(v => (
+            {sizesForColor.map((v) => (
               <button
                 key={v.id}
                 disabled={v.quantity === 0 || isSoldOut}
@@ -125,8 +111,13 @@ export default function ProductCard({ product, featured = false }) {
                   setSelectedVariant(v);
                 }}
                 className={`font-mono text-xs py-1.5 rounded transition-colors
-                  ${v.quantity === 0 ? 'opacity-30 line-through cursor-not-allowed border border-white/10 text-smoke' : 
-                    selectedVariant?.id === v.id ? 'bg-white text-ink font-bold' : 'bg-white/5 text-bone hover:bg-white/10'}
+                  ${
+                    v.quantity === 0
+                      ? 'opacity-30 line-through cursor-not-allowed border border-white/10 text-smoke'
+                      : selectedVariant?.id === v.id
+                        ? 'bg-white text-ink font-bold'
+                        : 'bg-white/5 text-bone hover:bg-white/10'
+                  }
                 `}
               >
                 {v.size}
@@ -146,7 +137,7 @@ export default function ProductCard({ product, featured = false }) {
               transition-transform duration-200 hover:scale-105 active:scale-95 min-h-[44px]
               disabled:opacity-30 disabled:hover:scale-100 disabled:cursor-not-allowed"
           >
-            {isSoldOut ? 'Sold Out' : (isSelectedVariantOut ? 'Select Size' : 'Buy Now')}
+            {isSoldOut ? 'Sold Out' : isSelectedVariantOut ? 'Select Size' : 'Buy Now'}
           </button>
         </div>
       </div>

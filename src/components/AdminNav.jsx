@@ -22,7 +22,9 @@ export default function AdminNav({ onLogout }) {
                 key={link.name}
                 to={link.path}
                 className={`font-mono text-sm uppercase tracking-widest transition-colors ${
-                  isActive ? 'text-volt border-b border-volt pb-1' : 'text-smoke hover:text-bone pb-1'
+                  isActive
+                    ? 'text-volt border-b border-volt pb-1'
+                    : 'text-smoke hover:text-bone pb-1'
                 }`}
               >
                 {link.name}
@@ -31,7 +33,7 @@ export default function AdminNav({ onLogout }) {
           })}
         </div>
       </div>
-      
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
         {onLogout && (
           <button

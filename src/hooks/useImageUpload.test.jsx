@@ -1,16 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import useImageUpload, {
-  validateFile, downscale, MAX_FILE_BYTES, MAX_EDGE,
+  validateFile,
+  downscale,
+  MAX_FILE_BYTES,
+  MAX_EDGE,
 } from './useImageUpload.js';
 import { mockFetch, jsonResponse, API } from '../test/utils.jsx';
-
-/**
- * downscale() cannot run unmodified under jsdom: getContext('2d') returns null
- * (node-canvas is not installed) and createImageBitmap does not exist. Both are
- * stubbed here so the network half of the hook is exercised for real, with the
- * image pipeline reduced to a predictable stand-in.
- */
 
 const AUTH = 'Basic dGVzdDp0ZXN0';
 
@@ -21,10 +17,12 @@ const imageFile = (over = {}) => ({
   ...over,
 });
 
-/** Makes decode + canvas work: source is w x h, toBlob yields a fixed blob. */
 function stubImagePipeline({ width = 2400, height = 1600, blob = new Blob(['x']) } = {}) {
   const close = vi.fn();
-  vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width, height, close })));
+  vi.stubGlobal(
+    'createImageBitmap',
+    vi.fn(async () => ({ width, height, close }))
+  );
 
   const drawImage = vi.fn();
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage });
@@ -37,8 +35,6 @@ beforeEach(() => {
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview-url');
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 });
-
-// ─── validateFile — pure, no DOM needed ──────────────────────────────────────
 
 describe('validateFile', () => {
   it('accepts a normal JPEG', () => {
@@ -58,31 +54,33 @@ describe('validateFile', () => {
   });
 
   it('rejects a non-image', () => {
-    expect(validateFile(imageFile({ type: 'application/pdf' })))
-      .toBe('That file is not an image. Choose a photo (JPEG, PNG or WebP).');
+    expect(validateFile(imageFile({ type: 'application/pdf' }))).toBe(
+      'That file is not an image. Choose a photo (JPEG, PNG or WebP).'
+    );
   });
 
   it('rejects a file with no type at all', () => {
-    expect(validateFile(imageFile({ type: '' })))
-      .toBe('That file is not an image. Choose a photo (JPEG, PNG or WebP).');
+    expect(validateFile(imageFile({ type: '' }))).toBe(
+      'That file is not an image. Choose a photo (JPEG, PNG or WebP).'
+    );
   });
 
   it('rejects an image format the browser cannot use', () => {
-    expect(validateFile(imageFile({ type: 'image/tiff' })))
-      .toBe('image/tiff images are not supported. Use JPEG, PNG or WebP.');
+    expect(validateFile(imageFile({ type: 'image/tiff' }))).toBe(
+      'image/tiff images are not supported. Use JPEG, PNG or WebP.'
+    );
   });
 
   it('rejects a file over the size cap, reporting both sizes in MB', () => {
-    expect(validateFile(imageFile({ size: 12 * 1024 * 1024 })))
-      .toBe('That image is 12.0MB — the limit is 10.0MB. Pick a smaller photo.');
+    expect(validateFile(imageFile({ size: 12 * 1024 * 1024 }))).toBe(
+      'That image is 12.0MB — the limit is 10.0MB. Pick a smaller photo.'
+    );
   });
 
   it('accepts a file exactly at the cap', () => {
     expect(validateFile(imageFile({ size: MAX_FILE_BYTES }))).toBeNull();
   });
 });
-
-// ─── downscale ───────────────────────────────────────────────────────────────
 
 describe('downscale', () => {
   it('caps the long edge at MAX_EDGE and preserves the aspect ratio', async () => {
@@ -120,32 +118,44 @@ describe('downscale', () => {
   });
 
   it('throws a readable message when the browser cannot decode the file', async () => {
-    vi.stubGlobal('createImageBitmap', vi.fn(async () => { throw new Error('bad'); }));
-    // The <img> fallback never fires onload in jsdom, so force the error path.
-    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => { throw new Error('no url'); });
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => {
+        throw new Error('bad');
+      })
+    );
 
-    await expect(downscale(imageFile())).rejects.toThrow(/could not be read by your browser/);
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
+      throw new Error('no url');
+    });
+
+    await expect(downscale(imageFile())).rejects.toThrow(
+      /could not be read by your browser/
+    );
   });
 
   it('throws when the canvas produces no blob', async () => {
     stubImagePipeline();
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(null));
 
-    await expect(downscale(imageFile()))
-      .rejects.toThrow('Could not process this image. Try a different photo.');
+    await expect(downscale(imageFile())).rejects.toThrow(
+      'Could not process this image. Try a different photo.'
+    );
   });
 });
-
-// ─── the hook ────────────────────────────────────────────────────────────────
 
 describe('useImageUpload', () => {
   const SIG = 'GET /api/admin/upload-signature';
   const CLOUDINARY = 'https://api.cloudinary.com/v1_1/test-cloud/image/upload';
 
-  const signature = () => jsonResponse({
-    cloudName: 'test-cloud', apiKey: 'key123', timestamp: 1700000000,
-    signature: 'abc123', folder: 'products',
-  });
+  const signature = () =>
+    jsonResponse({
+      cloudName: 'test-cloud',
+      apiKey: 'key123',
+      timestamp: 1700000000,
+      signature: 'abc123',
+      folder: 'products',
+    });
 
   it('starts idle', () => {
     const { result } = renderHook(() => useImageUpload(AUTH));
@@ -159,13 +169,17 @@ describe('useImageUpload', () => {
     stubImagePipeline();
     mockFetch({
       [SIG]: signature(),
-      [CLOUDINARY]: jsonResponse({ secure_url: 'https://res.cloudinary.com/x/photo.jpg' }),
+      [CLOUDINARY]: jsonResponse({
+        secure_url: 'https://res.cloudinary.com/x/photo.jpg',
+      }),
     });
 
     const { result } = renderHook(() => useImageUpload(AUTH));
 
     let url;
-    await act(async () => { url = await result.current.upload(imageFile()); });
+    await act(async () => {
+      url = await result.current.upload(imageFile());
+    });
 
     expect(url).toBe('https://res.cloudinary.com/x/photo.jpg');
     expect(result.current.status).toBe('done');
@@ -180,7 +194,9 @@ describe('useImageUpload', () => {
     });
 
     const { result } = renderHook(() => useImageUpload(AUTH));
-    await act(async () => { await result.current.upload(imageFile()); });
+    await act(async () => {
+      await result.current.upload(imageFile());
+    });
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(`${API}/api/admin/upload-signature`);
@@ -195,7 +211,9 @@ describe('useImageUpload', () => {
     });
 
     const { result } = renderHook(() => useImageUpload(AUTH));
-    await act(async () => { await result.current.upload(imageFile()); });
+    await act(async () => {
+      await result.current.upload(imageFile());
+    });
 
     const [url, init] = fetchMock.mock.calls[1];
     expect(url).toBe(CLOUDINARY);
@@ -216,7 +234,9 @@ describe('useImageUpload', () => {
     });
 
     const { result } = renderHook(() => useImageUpload(AUTH));
-    await act(async () => { await result.current.upload(imageFile()); });
+    await act(async () => {
+      await result.current.upload(imageFile());
+    });
 
     expect(result.current.previewUrl).toBe('blob:preview-url');
   });
@@ -226,7 +246,9 @@ describe('useImageUpload', () => {
     const { result } = renderHook(() => useImageUpload(AUTH));
 
     let url;
-    await act(async () => { url = await result.current.upload(imageFile({ type: 'video/mp4' })); });
+    await act(async () => {
+      url = await result.current.upload(imageFile({ type: 'video/mp4' }));
+    });
 
     expect(url).toBeNull();
     expect(result.current.status).toBe('error');
@@ -243,7 +265,9 @@ describe('useImageUpload', () => {
     const { result } = renderHook(() => useImageUpload(AUTH));
 
     let url;
-    await act(async () => { url = await result.current.upload(imageFile()); });
+    await act(async () => {
+      url = await result.current.upload(imageFile());
+    });
 
     expect(url).toBeNull();
     expect(result.current.status).toBe('error');
@@ -253,11 +277,19 @@ describe('useImageUpload', () => {
   it('falls back to the HTTP status when the signature error has no body', async () => {
     stubImagePipeline();
     mockFetch({
-      [SIG]: { ok: false, status: 500, json: async () => { throw new Error('nope'); } },
+      [SIG]: {
+        ok: false,
+        status: 500,
+        json: async () => {
+          throw new Error('nope');
+        },
+      },
     });
 
     const { result } = renderHook(() => useImageUpload(AUTH));
-    await act(async () => { await result.current.upload(imageFile()); });
+    await act(async () => {
+      await result.current.upload(imageFile());
+    });
 
     expect(result.current.error).toBe('Could not start upload (HTTP 500).');
   });
@@ -275,7 +307,9 @@ describe('useImageUpload', () => {
     const { result } = renderHook(() => useImageUpload(AUTH));
 
     let url;
-    await act(async () => { url = await result.current.upload(imageFile()); });
+    await act(async () => {
+      url = await result.current.upload(imageFile());
+    });
 
     expect(url).toBeNull();
     expect(result.current.error).toBe('File size too large.');
@@ -288,7 +322,9 @@ describe('useImageUpload', () => {
     const { result } = renderHook(() => useImageUpload(AUTH));
 
     let url;
-    await act(async () => { url = await result.current.upload(imageFile()); });
+    await act(async () => {
+      url = await result.current.upload(imageFile());
+    });
 
     expect(url).toBeNull();
     expect(result.current.error).toBe('Upload failed. Please try again.');
@@ -302,10 +338,14 @@ describe('useImageUpload', () => {
     const { result } = renderHook(() => useImageUpload(AUTH));
 
     let url;
-    await act(async () => { url = await result.current.upload(imageFile()); });
+    await act(async () => {
+      url = await result.current.upload(imageFile());
+    });
 
     expect(url).toBeNull();
-    expect(result.current.error).toBe('Could not process this image. Try a different photo.');
+    expect(result.current.error).toBe(
+      'Could not process this image. Try a different photo.'
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -313,7 +353,9 @@ describe('useImageUpload', () => {
     const fetchMock = mockFetch({});
     const { result } = renderHook(() => useImageUpload(AUTH));
 
-    await act(async () => { await result.current.upload(imageFile({ type: 'video/mp4' })); });
+    await act(async () => {
+      await result.current.upload(imageFile({ type: 'video/mp4' }));
+    });
     expect(result.current.status).toBe('error');
 
     act(() => result.current.reset());
@@ -332,8 +374,12 @@ describe('useImageUpload', () => {
     });
 
     const { result } = renderHook(() => useImageUpload(AUTH));
-    await act(async () => { await result.current.upload(imageFile()); });
-    await act(async () => { await result.current.upload(imageFile()); });
+    await act(async () => {
+      await result.current.upload(imageFile());
+    });
+    await act(async () => {
+      await result.current.upload(imageFile());
+    });
 
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview-url');
   });
@@ -346,11 +392,15 @@ describe('useImageUpload', () => {
     });
 
     const { result, unmount } = renderHook(() => useImageUpload(AUTH));
-    await act(async () => { await result.current.upload(imageFile()); });
+    await act(async () => {
+      await result.current.upload(imageFile());
+    });
 
     URL.revokeObjectURL.mockClear();
     unmount();
 
-    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview-url'));
+    await waitFor(() =>
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview-url')
+    );
   });
 });

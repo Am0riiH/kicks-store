@@ -1,8 +1,3 @@
-/**
- * process-posters.mjs
- * Converts captured PNG posters into optimized WebP variants.
- * Run after capture-poster.mjs.
- */
 import sharp from 'sharp';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -14,7 +9,9 @@ async function convert(name, quality) {
   const input = resolve(DIR, `${name}.png`);
   const output = resolve(DIR, `${name}.webp`);
   const info = await sharp(input).webp({ quality }).toFile(output);
-  console.log(`✅ ${name}.webp — ${(info.size / 1024).toFixed(1)} KB  (${info.width}×${info.height})`);
+  console.log(
+    `✅ ${name}.webp — ${(info.size / 1024).toFixed(1)} KB  (${info.width}×${info.height})`
+  );
 }
 
 await convert('shoe-poster-desktop', 82);

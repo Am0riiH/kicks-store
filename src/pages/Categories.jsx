@@ -2,10 +2,25 @@ import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle.js';
 
 const categories = [
-  { id: 'high-top', name: 'High-Top', desc: 'Court heritage, ankle-locked silhouettes.', count: 12 },
-  { id: 'mid-top', name: 'Mid-Top', desc: 'The all-rounder cut. Balanced and bold.', count: 18 },
+  {
+    id: 'high-top',
+    name: 'High-Top',
+    desc: 'Court heritage, ankle-locked silhouettes.',
+    count: 12,
+  },
+  {
+    id: 'mid-top',
+    name: 'Mid-Top',
+    desc: 'The all-rounder cut. Balanced and bold.',
+    count: 18,
+  },
   { id: 'low-top', name: 'Low-Top', desc: 'Street-first, low-profile speed.', count: 9 },
-  { id: 'retro', name: 'Retro Vault', desc: 'Archive colorways, re-released.', count: 14 },
+  {
+    id: 'retro',
+    name: 'Retro Vault',
+    desc: 'Archive colorways, re-released.',
+    count: 14,
+  },
 ];
 
 export default function Categories() {
@@ -13,7 +28,9 @@ export default function Categories() {
   return (
     <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10">
       <div className="mb-12">
-        <span className="font-mono text-xs uppercase tracking-widest text-volt">Browse by cut</span>
+        <span className="font-mono text-xs uppercase tracking-widest text-volt">
+          Browse by cut
+        </span>
         <h1 className="mt-2 font-display text-5xl uppercase leading-none text-bone sm:text-7xl">
           Categories
         </h1>

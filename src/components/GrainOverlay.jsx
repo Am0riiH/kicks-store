@@ -1,25 +1,3 @@
-/**
- * GrainOverlay.jsx
- * ─────────────────────────────────────────────────────────────────────────────
- * Feature 2 — Film-Grain / Noise Texture Overlay
- *
- * Renders a fixed full-viewport <svg> that uses feTurbulence to generate
- * procedural noise — no image file or base64 asset needed. The SVG is
- * animated with a tiny translateX/Y loop (±2 px, 8 s) to give the grain a
- * subtle "living film" quality without taxing the GPU (the motion is
- * on the outer wrapper, not re-rendering the filter).
- *
- * The overlay sits at z-index 2, above the 3D canvas (z-index 0), below all
- * page UI. pointer-events: none ensures it never intercepts any click.
- *
- * Opacity defaults to ~4% — felt more than seen. Adjust the `opacity` prop
- * if you want more/less grain texture.
- *
- * Hook in App.jsx: replace the static <div className="grain-overlay" /> with
- * <GrainOverlay />. The .grain-overlay CSS class in index.css can be removed.
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
 export default function GrainOverlay({ opacity = 0.042 }) {
   return (
     <div
@@ -35,7 +13,6 @@ export default function GrainOverlay({ opacity = 0.042 }) {
         willChange: 'transform',
       }}
     >
-      {/* SVG generates noise entirely in-browser via feTurbulence */}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="100%"

@@ -3,7 +3,10 @@ import AdminNav from '../components/AdminNav.jsx';
 import useImageUpload from '../hooks/useImageUpload.js';
 import { API_BASE, describeApiError } from '../lib/api.js';
 import {
-  useAdminAuth, useNoIndex, readAdminResponse, isUnauthorized,
+  useAdminAuth,
+  useNoIndex,
+  readAdminResponse,
+  isUnauthorized,
 } from '../hooks/useAdminAuth.js';
 
 function VariantsManager({ productId, authHeader }) {
@@ -12,9 +15,9 @@ function VariantsManager({ productId, authHeader }) {
 
   const fetchVariants = useCallback(() => {
     fetch(`${API_BASE}/api/products/${productId}/variants`)
-      .then(res => res.json())
-      .then(data => setVariants(data.variants || []))
-      .catch(err => console.error(err));
+      .then((res) => res.json())
+      .then((data) => setVariants(data.variants || []))
+      .catch((err) => console.error(err));
   }, [productId]);
 
   useEffect(() => {
@@ -25,41 +28,41 @@ function VariantsManager({ productId, authHeader }) {
     e.preventDefault();
     fetch(`${API_BASE}/api/admin/products/${productId}/variants`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': authHeader },
-      body: JSON.stringify({ ...newVar, quantity: Number(newVar.quantity) })
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+      body: JSON.stringify({ ...newVar, quantity: Number(newVar.quantity) }),
     })
-    .then(res => res.json())
-    .then(() => {
-      setNewVar({ size: '', color: '', quantity: 0, sku: '' });
-      fetchVariants();
-    })
-    .catch(err => alert(err.message));
+      .then((res) => res.json())
+      .then(() => {
+        setNewVar({ size: '', color: '', quantity: 0, sku: '' });
+        fetchVariants();
+      })
+      .catch((err) => alert(err.message));
   };
 
   const handleUpdateQty = (variantId, currentVar, newQty) => {
     fetch(`${API_BASE}/api/admin/variants/${variantId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': authHeader },
-      body: JSON.stringify({ ...currentVar, quantity: Number(newQty) })
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+      body: JSON.stringify({ ...currentVar, quantity: Number(newQty) }),
     })
-    .then(() => fetchVariants())
-    .catch(err => alert(err.message));
+      .then(() => fetchVariants())
+      .catch((err) => alert(err.message));
   };
 
   const handleDelete = (variantId) => {
     if (!window.confirm('Delete variant?')) return;
     fetch(`${API_BASE}/api/admin/variants/${variantId}`, {
       method: 'DELETE',
-      headers: { 'Authorization': authHeader }
+      headers: { Authorization: authHeader },
     })
-    .then(() => fetchVariants())
-    .catch(err => alert(err.message));
+      .then(() => fetchVariants())
+      .catch((err) => alert(err.message));
   };
 
   return (
     <div className="mt-8 border-t border-white/20 pt-6">
       <h4 className="text-lg font-display uppercase text-bone mb-4">Manage Variants</h4>
-      
+
       <div className="bg-white/5 border border-white/10 rounded overflow-hidden mb-6">
         <table className="w-full text-left font-mono text-xs">
           <thead className="bg-white/10 text-smoke uppercase">
@@ -72,33 +75,44 @@ function VariantsManager({ productId, authHeader }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 text-bone">
-            {variants.map(v => (
+            {variants.map((v) => (
               <tr key={v.id} className="hover:bg-white/5">
                 <td className="p-2">{v.size}</td>
                 <td className="p-2">{v.color}</td>
                 <td className="p-2">{v.sku || '-'}</td>
                 <td className="p-2">
                   <div className="flex items-center gap-2">
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       className="w-16 bg-black border border-white/20 rounded px-1 text-bone"
                       value={v.quantity}
                       onChange={(e) => handleUpdateQty(v.id, v, e.target.value)}
                     />
                     {v.quantity === 0 && (
-                      <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="Out of stock"></span>
+                      <span
+                        className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"
+                        title="Out of stock"
+                      ></span>
                     )}
                   </div>
                 </td>
                 <td className="p-2 text-right">
-                  <button type="button" onClick={() => handleDelete(v.id)} className="text-red-400 hover:text-red-300">
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(v.id)}
+                    className="text-red-400 hover:text-red-300"
+                  >
                     Delete
                   </button>
                 </td>
               </tr>
             ))}
             {variants.length === 0 && (
-              <tr><td colSpan="5" className="p-4 text-center text-smoke">No variants</td></tr>
+              <tr>
+                <td colSpan="5" className="p-4 text-center text-smoke">
+                  No variants
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -107,21 +121,49 @@ function VariantsManager({ productId, authHeader }) {
       <form onSubmit={handleAdd} className="flex gap-2 font-mono text-xs items-end">
         <div className="flex-1">
           <label className="block text-smoke mb-1">Size</label>
-          <input required type="text" value={newVar.size} onChange={e => setNewVar({...newVar, size: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-bone" />
+          <input
+            required
+            type="text"
+            value={newVar.size}
+            onChange={(e) => setNewVar({ ...newVar, size: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-bone"
+          />
         </div>
         <div className="flex-1">
           <label className="block text-smoke mb-1">Color</label>
-          <input required type="text" value={newVar.color} onChange={e => setNewVar({...newVar, color: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-bone" />
+          <input
+            required
+            type="text"
+            value={newVar.color}
+            onChange={(e) => setNewVar({ ...newVar, color: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-bone"
+          />
         </div>
         <div className="flex-1">
           <label className="block text-smoke mb-1">Qty</label>
-          <input required type="number" value={newVar.quantity} onChange={e => setNewVar({...newVar, quantity: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-bone" />
+          <input
+            required
+            type="number"
+            value={newVar.quantity}
+            onChange={(e) => setNewVar({ ...newVar, quantity: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-bone"
+          />
         </div>
         <div className="flex-1">
           <label className="block text-smoke mb-1">SKU (Opt)</label>
-          <input type="text" value={newVar.sku} onChange={e => setNewVar({...newVar, sku: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-bone" />
+          <input
+            type="text"
+            value={newVar.sku}
+            onChange={(e) => setNewVar({ ...newVar, sku: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-bone"
+          />
         </div>
-        <button type="submit" className="bg-volt text-ink px-3 py-1 rounded hover:bg-volt/90 font-bold">Add</button>
+        <button
+          type="submit"
+          className="bg-volt text-ink px-3 py-1 rounded hover:bg-volt/90 font-bold"
+        >
+          Add
+        </button>
       </form>
     </div>
   );
@@ -129,20 +171,32 @@ function VariantsManager({ productId, authHeader }) {
 
 export default function AdminProducts() {
   const {
-    authHeader, username, setUsername, password, setPassword,
-    loginError, loggingIn, login, logout,
+    authHeader,
+    username,
+    setUsername,
+    password,
+    setPassword,
+    loginError,
+    loggingIn,
+    login,
+    logout,
   } = useAdminAuth('/api/admin/products');
 
-  // Dashboard state
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
-  // Form state
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    id: '', name: '', colorway: '', category: '', price: '', sku: '', tag: '', image: ''
+    id: '',
+    name: '',
+    colorway: '',
+    category: '',
+    price: '',
+    sku: '',
+    tag: '',
+    image: '',
   });
 
   const [saveError, setSaveError] = useState(null);
@@ -169,7 +223,7 @@ export default function AdminProducts() {
   const fetchProducts = () => {
     if (!authHeader) return;
     setLoading(true);
-    fetch(`${API_BASE}/api/admin/products`, { headers: { 'Authorization': authHeader } })
+    fetch(`${API_BASE}/api/admin/products`, { headers: { Authorization: authHeader } })
       .then(readAdminResponse)
       .then((data) => {
         setProducts(data.products || []);
@@ -198,7 +252,14 @@ export default function AdminProducts() {
     } else {
       setEditingId(null);
       setFormData({
-        id: '', name: '', colorway: '', category: 'Mid-Top', price: '', sku: '', tag: '', image: ''
+        id: '',
+        name: '',
+        colorway: '',
+        category: 'Mid-Top',
+        price: '',
+        sku: '',
+        tag: '',
+        image: '',
       });
     }
     setSaveError(null);
@@ -206,15 +267,12 @@ export default function AdminProducts() {
     setIsFormOpen(true);
   };
 
-  /* Uploading writes the resulting Cloudinary URL into formData.image, so the
-     existing URL field stays the single source of truth and handleFormSubmit
-     below is untouched — pasting a URL by hand still works exactly as before. */
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = await uploadImage(file);
     if (url) setFormData((prev) => ({ ...prev, image: url }));
-    // Allow re-picking the same file after a failure.
+
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -229,54 +287,51 @@ export default function AdminProducts() {
     setSaveError(null);
     setIsSaving(true);
     const method = editingId ? 'PUT' : 'POST';
-    const url = editingId ? `${API_BASE}/api/admin/products/${editingId}` : `${API_BASE}/api/admin/products`;
+    const url = editingId
+      ? `${API_BASE}/api/admin/products/${editingId}`
+      : `${API_BASE}/api/admin/products`;
 
-    // Ensure price is a number
     const payload = { ...formData, price: Number(formData.price) };
 
     fetch(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader
+        Authorization: authHeader,
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     })
-    .then(async res => {
-      if (!res.ok) {
-        // Read the real reason from the API instead of collapsing every
-        // failure into one generic string.
-        const body = await res.json().catch(() => null);
-        // withSummary: the admin form has room for the "Validation Error — "
-        // prefix, and it tells the admin whether the failure was validation or
-        // something else. The newsletter form omits it.
-        throw new Error(describeApiError(body, res.status, { withSummary: true }));
-      }
-      return res.json();
-    })
-    .then(() => {
-      setIsSaving(false);
-      setIsFormOpen(false);
-      fetchProducts();
-    })
-    .catch(err => {
-      setIsSaving(false);
-      setSaveError(err.message);
-    });
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+
+          throw new Error(describeApiError(body, res.status, { withSummary: true }));
+        }
+        return res.json();
+      })
+      .then(() => {
+        setIsSaving(false);
+        setIsFormOpen(false);
+        fetchProducts();
+      })
+      .catch((err) => {
+        setIsSaving(false);
+        setSaveError(err.message);
+      });
   };
 
   const handleDelete = (id) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
-    
+
     fetch(`${API_BASE}/api/admin/products/${id}`, {
       method: 'DELETE',
-      headers: { 'Authorization': authHeader }
+      headers: { Authorization: authHeader },
     })
-    .then(res => {
-      if (!res.ok) throw new Error('Failed to delete product');
-      fetchProducts();
-    })
-    .catch(err => alert('Error deleting product: ' + err.message));
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to delete product');
+        fetchProducts();
+      })
+      .catch((err) => alert('Error deleting product: ' + err.message));
   };
 
   if (!authHeader) {
@@ -284,29 +339,50 @@ export default function AdminProducts() {
       <div className="min-h-screen pt-32 px-6 flex flex-col items-center justify-center">
         <div className="w-full max-w-sm border border-white/10 rounded-2xl bg-black/50 p-8 backdrop-blur-md">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-display uppercase tracking-tight text-bone mb-2">Admin Login</h1>
+            <h1 className="text-2xl font-display uppercase tracking-tight text-bone mb-2">
+              Admin Login
+            </h1>
           </div>
-          {/* A placeholder is not a label: it disappears on input and is not
-              reliably announced. Visually-hidden labels keep the compact design
-              while giving screen readers a real accessible name.
-              WCAG 1.3.1 / 3.3.2 / 4.1.2. */}
+
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            <label htmlFor="admin-products-username" className="sr-only">Username</label>
+            <label htmlFor="admin-products-username" className="sr-only">
+              Username
+            </label>
             <input
-              id="admin-products-username" name="username" autoComplete="username"
-              type="text" required placeholder="Username" value={username}
+              id="admin-products-username"
+              name="username"
+              autoComplete="username"
+              type="text"
+              required
+              placeholder="Username"
+              value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full bg-black/50 border border-white/20 rounded px-4 py-3 text-sm text-bone font-mono"
             />
-            <label htmlFor="admin-products-password" className="sr-only">Password</label>
+            <label htmlFor="admin-products-password" className="sr-only">
+              Password
+            </label>
             <input
-              id="admin-products-password" name="password" autoComplete="current-password"
-              type="password" required placeholder="Password" value={password}
+              id="admin-products-password"
+              name="password"
+              autoComplete="current-password"
+              type="password"
+              required
+              placeholder="Password"
+              value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-black/50 border border-white/20 rounded px-4 py-3 text-sm text-bone font-mono"
             />
-            {loginError && <div className="text-red-400 font-mono text-xs text-center">{loginError}</div>}
-            <button type="submit" disabled={loggingIn} className="mt-4 w-full rounded bg-volt px-4 py-3 font-display text-sm uppercase text-ink">
+            {loginError && (
+              <div className="text-red-400 font-mono text-xs text-center">
+                {loginError}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={loggingIn}
+              className="mt-4 w-full rounded bg-volt px-4 py-3 font-display text-sm uppercase text-ink"
+            >
               Sign In
             </button>
           </form>
@@ -319,10 +395,12 @@ export default function AdminProducts() {
     <div className="min-h-screen pt-32 px-6 pb-20">
       <div className="max-w-6xl mx-auto">
         <AdminNav onLogout={handleLogout} />
-        
+
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-xl font-display uppercase tracking-tight text-bone">Product Catalog</h2>
-          <button 
+          <h2 className="text-xl font-display uppercase tracking-tight text-bone">
+            Product Catalog
+          </h2>
+          <button
             onClick={() => handleOpenForm()}
             className="px-4 py-2 bg-volt text-ink font-display text-sm uppercase tracking-wide rounded hover:scale-[1.02] transition-transform"
           >
@@ -348,10 +426,16 @@ export default function AdminProducts() {
                 <tr key={product.id} className="hover:bg-white/5 transition-colors">
                   <td className="p-4">
                     <div className="flex items-center gap-4">
-                      <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded bg-white/5" />
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-12 h-12 object-cover rounded bg-white/5"
+                      />
                       <div>
                         <div className="font-bold text-bone">{product.name}</div>
-                        <div className="text-xs text-smoke">{product.colorway || '-'}</div>
+                        <div className="text-xs text-smoke">
+                          {product.colorway || '-'}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -365,13 +449,13 @@ export default function AdminProducts() {
                   </td>
                   <td className="p-4 text-right whitespace-nowrap">
                     <div className="flex gap-2 justify-end">
-                      <button 
+                      <button
                         onClick={() => handleOpenForm(product)}
                         className="px-2 py-1 text-[10px] uppercase tracking-widest text-smoke hover:bg-white/5 rounded border border-white/10 transition-colors"
                       >
                         Edit
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(product.id)}
                         className="px-2 py-1 text-[10px] uppercase tracking-widest text-red-400 hover:bg-red-400/10 rounded border border-red-400/20 transition-colors"
                       >
@@ -383,7 +467,10 @@ export default function AdminProducts() {
               ))}
               {products.length === 0 && !loading && (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-smoke font-mono text-xs uppercase tracking-widest">
+                  <td
+                    colSpan="5"
+                    className="p-8 text-center text-smoke font-mono text-xs uppercase tracking-widest"
+                  >
                     No products found
                   </td>
                 </tr>
@@ -392,35 +479,88 @@ export default function AdminProducts() {
           </table>
         </div>
 
-        {/* Modal Form */}
         {isFormOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="w-full max-w-lg bg-black border border-white/20 rounded-2xl p-6 overflow-y-auto max-h-[90vh]">
               <h3 className="text-xl font-display uppercase text-bone mb-6">
                 {editingId ? 'Edit Product' : 'Add New Product'}
               </h3>
-              
-              <form onSubmit={handleFormSubmit} className="flex flex-col gap-4 font-mono text-sm">
-                {/* Every label is tied to its control with htmlFor/id. Visual
-                    adjacency alone gave these no accessible name, so a screen
-                    reader announced eight anonymous edit fields and an unnamed
-                    combo box. WCAG 1.3.1 / 4.1.2. */}
+
+              <form
+                onSubmit={handleFormSubmit}
+                className="flex flex-col gap-4 font-mono text-sm"
+              >
                 <div>
-                  <label htmlFor="product-id" className="block text-xs text-smoke uppercase mb-1">ID (URL slug)</label>
-                  <input id="product-id" name="id" required disabled={!!editingId} type="text" value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none disabled:opacity-50" />
+                  <label
+                    htmlFor="product-id"
+                    className="block text-xs text-smoke uppercase mb-1"
+                  >
+                    ID (URL slug)
+                  </label>
+                  <input
+                    id="product-id"
+                    name="id"
+                    required
+                    disabled={!!editingId}
+                    type="text"
+                    value={formData.id}
+                    onChange={(e) => setFormData({ ...formData, id: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none disabled:opacity-50"
+                  />
                 </div>
                 <div>
-                  <label htmlFor="product-name" className="block text-xs text-smoke uppercase mb-1">Name</label>
-                  <input id="product-name" name="name" required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                  <label
+                    htmlFor="product-name"
+                    className="block text-xs text-smoke uppercase mb-1"
+                  >
+                    Name
+                  </label>
+                  <input
+                    id="product-name"
+                    name="name"
+                    required
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none"
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="product-colorway" className="block text-xs text-smoke uppercase mb-1">Colorway</label>
-                    <input id="product-colorway" name="colorway" type="text" value={formData.colorway} onChange={e => setFormData({...formData, colorway: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                    <label
+                      htmlFor="product-colorway"
+                      className="block text-xs text-smoke uppercase mb-1"
+                    >
+                      Colorway
+                    </label>
+                    <input
+                      id="product-colorway"
+                      name="colorway"
+                      type="text"
+                      value={formData.colorway}
+                      onChange={(e) =>
+                        setFormData({ ...formData, colorway: e.target.value })
+                      }
+                      className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none"
+                    />
                   </div>
                   <div>
-                    <label htmlFor="product-category" className="block text-xs text-smoke uppercase mb-1">Category</label>
-                    <select id="product-category" name="category" required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none [&>option]:bg-zinc-900">
+                    <label
+                      htmlFor="product-category"
+                      className="block text-xs text-smoke uppercase mb-1"
+                    >
+                      Category
+                    </label>
+                    <select
+                      id="product-category"
+                      name="category"
+                      required
+                      value={formData.category}
+                      onChange={(e) =>
+                        setFormData({ ...formData, category: e.target.value })
+                      }
+                      className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none [&>option]:bg-zinc-900"
+                    >
                       <option value="High-Top">High-Top</option>
                       <option value="Mid-Top">Mid-Top</option>
                       <option value="Low-Top">Low-Top</option>
@@ -430,24 +570,65 @@ export default function AdminProducts() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="product-price" className="block text-xs text-smoke uppercase mb-1">Price ($)</label>
-                    <input id="product-price" name="price" required type="number" step="0.01" min="0" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                    <label
+                      htmlFor="product-price"
+                      className="block text-xs text-smoke uppercase mb-1"
+                    >
+                      Price ($)
+                    </label>
+                    <input
+                      id="product-price"
+                      name="price"
+                      required
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.price}
+                      onChange={(e) =>
+                        setFormData({ ...formData, price: e.target.value })
+                      }
+                      className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none"
+                    />
                   </div>
                   <div>
-                    <label htmlFor="product-sku" className="block text-xs text-smoke uppercase mb-1">SKU</label>
-                    <input id="product-sku" name="sku" required type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                    <label
+                      htmlFor="product-sku"
+                      className="block text-xs text-smoke uppercase mb-1"
+                    >
+                      SKU
+                    </label>
+                    <input
+                      id="product-sku"
+                      name="sku"
+                      required
+                      type="text"
+                      value={formData.sku}
+                      onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                      className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none"
+                    />
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="product-tag" className="block text-xs text-smoke uppercase mb-1">Tag (e.g. New, Limited)</label>
-                  <input id="product-tag" name="tag" type="text" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                  <label
+                    htmlFor="product-tag"
+                    className="block text-xs text-smoke uppercase mb-1"
+                  >
+                    Tag (e.g. New, Limited)
+                  </label>
+                  <input
+                    id="product-tag"
+                    name="tag"
+                    type="text"
+                    value={formData.tag}
+                    onChange={(e) => setFormData({ ...formData, tag: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs text-smoke uppercase mb-1">Product Image</label>
+                  <label className="block text-xs text-smoke uppercase mb-1">
+                    Product Image
+                  </label>
 
-                  {/* accept="image/*" with NO capture attribute: capture would force the
-                      camera, while omitting it gives the gallery picker (iOS shows the
-                      Photo Library / Take Photo / Browse sheet). */}
                   <div className="flex items-start gap-3">
                     {(uploadPreview || formData.image) && (
                       <img
@@ -468,11 +649,16 @@ export default function AdminProducts() {
                       />
                       {isUploading && (
                         <p className="mt-2 text-xs text-volt uppercase tracking-wide">
-                          {uploadStatus === 'compressing' ? 'Resizing image…' : 'Uploading…'}
+                          {uploadStatus === 'compressing'
+                            ? 'Resizing image…'
+                            : 'Uploading…'}
                         </p>
                       )}
                       {uploadError && (
-                        <p role="alert" className="mt-2 text-xs text-red-400 leading-relaxed">
+                        <p
+                          role="alert"
+                          className="mt-2 text-xs text-red-400 leading-relaxed"
+                        >
                           {uploadError}
                         </p>
                       )}
@@ -490,23 +676,48 @@ export default function AdminProducts() {
                 </div>
 
                 <div>
-                  <label htmlFor="product-image" className="block text-xs text-smoke uppercase mb-1">
-                    Image URL <span className="normal-case text-smoke">(set by upload, or paste one)</span>
+                  <label
+                    htmlFor="product-image"
+                    className="block text-xs text-smoke uppercase mb-1"
+                  >
+                    Image URL{' '}
+                    <span className="normal-case text-smoke">
+                      (set by upload, or paste one)
+                    </span>
                   </label>
-                  <input id="product-image" name="image" required type="url" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none" />
+                  <input
+                    id="product-image"
+                    name="image"
+                    required
+                    type="url"
+                    value={formData.image}
+                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-bone focus:border-volt focus:outline-none"
+                  />
                 </div>
 
                 {saveError && (
-                  <div role="alert" className="mt-4 rounded border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs leading-relaxed text-red-400">
+                  <div
+                    role="alert"
+                    className="mt-4 rounded border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs leading-relaxed text-red-400"
+                  >
                     {saveError}
                   </div>
                 )}
 
                 <div className="flex gap-4 mt-6">
-                  <button type="button" onClick={() => setIsFormOpen(false)} className="flex-1 py-2 border border-white/20 text-smoke rounded hover:bg-white/5 uppercase tracking-wide">
+                  <button
+                    type="button"
+                    onClick={() => setIsFormOpen(false)}
+                    className="flex-1 py-2 border border-white/20 text-smoke rounded hover:bg-white/5 uppercase tracking-wide"
+                  >
                     Close
                   </button>
-                  <button type="submit" disabled={isUploading || isSaving} className="flex-1 py-2 bg-volt text-ink rounded hover:bg-volt/90 uppercase tracking-wide disabled:opacity-50 disabled:hover:bg-volt">
+                  <button
+                    type="submit"
+                    disabled={isUploading || isSaving}
+                    className="flex-1 py-2 bg-volt text-ink rounded hover:bg-volt/90 uppercase tracking-wide disabled:opacity-50 disabled:hover:bg-volt"
+                  >
                     {isUploading ? 'Uploading…' : isSaving ? 'Saving…' : 'Save Product'}
                   </button>
                 </div>

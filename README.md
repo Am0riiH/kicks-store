@@ -1,4 +1,4 @@
-# Air Jordan Drop Site
+# Sneakers Drop Site
 
 ---
 
@@ -56,10 +56,9 @@ npm start
 
 You should see:
 ```
-🚀  Air Jordan Store — checkout server running on port 3001
-    Stripe key    : sk_test_51… (✅ TEST mode)
-    Webhook secret: ⚠️  not set — run: stripe listen --forward-to localhost:3001/api/webhook
-    Health        : http://localhost:3001/health
+Sneakers Store server listening on port 3001
+Stripe mode: test
+Webhook secret: not set
 ```
 
 > The webhook secret warning is expected at this point — you'll fix it in Step 4b.

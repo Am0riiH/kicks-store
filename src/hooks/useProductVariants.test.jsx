@@ -3,29 +3,15 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { useProductVariants } from './useProductVariants.js';
 import { mockFetch, jsonResponse, API } from '../test/utils.jsx';
 
-/**
- * The three-state `preloadedVariants` contract is what removed the N+1 on
- * /store, so each state gets an explicit test:
- *
- *   undefined → fetch (legacy callers)
- *   null      → wait, fire NO request
- *   Array     → use directly, never fetch
- */
-
 const variant = (over = {}) => ({
-  id: 1, product_id: 'p1', size: '10', color: 'Black', quantity: 5, ...over,
+  id: 1,
+  product_id: 'p1',
+  size: '10',
+  color: 'Black',
+  quantity: 5,
+  ...over,
 });
 
-/**
- * IMPORTANT: preloaded variants must be a STABLE reference.
- *
- * The sync effect lists `preloadedVariants` in its dependency array and calls
- * setVariants with it, so a fresh array literal on every render re-fires the
- * effect forever. Callers pass `product.variants` straight off fetched state,
- * which is stable; tests must do the same or they hang the worker.
- *
- * These helpers build each fixture once, outside the render callback.
- */
 const ONE = [variant()];
 const EMPTY = [];
 const TWO_COLOURS = [variant({ id: 1, color: 'Red' }), variant({ id: 2, color: 'Blue' })];
@@ -65,7 +51,9 @@ describe('preloadedVariants: undefined — fetches', () => {
 
   it('stops loading and logs when the request fails', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockFetch({ 'GET /api/products/p1/variants': () => Promise.reject(new Error('offline')) });
+    mockFetch({
+      'GET /api/products/p1/variants': () => Promise.reject(new Error('offline')),
+    });
 
     const { result } = renderHook(() => useProductVariants('p1'));
 
@@ -89,9 +77,6 @@ describe('preloadedVariants: null — waits', () => {
 
     const { result } = renderHook(() => useProductVariants('p1', null));
 
-    // This is the whole point of the null sentinel: ProductDetail passes null
-    // until its own product fetch resolves. Firing here would double every
-    // detail-page load.
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.variants).toEqual([]);
   });
@@ -147,10 +132,9 @@ describe('preloadedVariants: array — uses directly', () => {
     mockFetch({});
     const next = [variant({ id: 3, color: 'Red' }), variant({ id: 4, color: 'Blue' })];
 
-    const { result, rerender } = renderHook(
-      ({ v }) => useProductVariants('p1', v),
-      { initialProps: { v: TWO_COLOURS } }
-    );
+    const { result, rerender } = renderHook(({ v }) => useProductVariants('p1', v), {
+      initialProps: { v: TWO_COLOURS },
+    });
 
     act(() => result.current.setSelectedColor('Blue'));
     await waitFor(() => expect(result.current.selectedColor).toBe('Blue'));

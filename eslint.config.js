@@ -48,11 +48,14 @@ export default [
       // Vite HMR works best when a module exports only components.
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       // Loop/catch bindings named _ or leading-underscore are intentional.
-      'no-unused-vars': ['warn', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^[A-Z_]',
-        caughtErrors: 'none',
-      }],
+      'no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^[A-Z_]',
+          caughtErrors: 'none',
+        },
+      ],
     },
   },
 

@@ -1,11 +1,5 @@
 import LegalPage from '../components/LegalPage.jsx';
 
-/* PLACEHOLDER COPY — demo content for a portfolio build.
-   This is NOT legal advice and has not been reviewed by a lawyer. Replace the
-   whole document with a policy that reflects what the business actually does
-   with personal data before launch, and check it against the regimes that
-   apply to you (GDPR, CCPA, and so on). */
-
 const SECTIONS = [
   {
     heading: 'Information we collect',

@@ -15,11 +15,22 @@ describe('static content', () => {
   it('renders the shop, company and legal link columns', () => {
     renderFooter();
 
-    expect(screen.getByRole('link', { name: 'All sneakers' })).toHaveAttribute('href', '/store');
-    expect(screen.getByRole('link', { name: 'Contact' })).toHaveAttribute('href', '/contact');
-    expect(screen.getByRole('link', { name: 'Privacy policy' })).toHaveAttribute('href', '/privacy');
+    expect(screen.getByRole('link', { name: 'All sneakers' })).toHaveAttribute(
+      'href',
+      '/store'
+    );
+    expect(screen.getByRole('link', { name: 'Contact' })).toHaveAttribute(
+      'href',
+      '/contact'
+    );
+    expect(screen.getByRole('link', { name: 'Privacy policy' })).toHaveAttribute(
+      'href',
+      '/privacy'
+    );
     expect(screen.getByRole('link', { name: 'Terms of service' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Shipping and returns' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Shipping and returns' })
+    ).toBeInTheDocument();
   });
 
   it('shows the current year in the copyright', () => {
@@ -63,7 +74,10 @@ describe('newsletter form — submitting', () => {
     const user = userEvent.setup();
     let release;
     mockFetch({
-      [SUBSCRIBE]: () => new Promise((resolve) => { release = () => resolve(jsonResponse({ ok: true })); }),
+      [SUBSCRIBE]: () =>
+        new Promise((resolve) => {
+          release = () => resolve(jsonResponse({ ok: true }));
+        }),
     });
 
     renderFooter();
@@ -74,7 +88,9 @@ describe('newsletter form — submitting', () => {
     expect(emailInput()).toBeDisabled();
 
     release();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Join' })).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Join' })).toBeEnabled()
+    );
   });
 
   it('posts the typed address to the subscribe endpoint', async () => {
@@ -116,8 +132,9 @@ describe('newsletter form — success', () => {
     await user.type(emailInput(), 'again@example.com');
     await user.click(joinButton());
 
-    expect(await screen.findByRole('alert'))
-      .toHaveTextContent("You're already on the list — nothing to do.");
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "You're already on the list — nothing to do."
+    );
   });
 });
 
@@ -162,22 +179,27 @@ describe('newsletter form — errors', () => {
     await user.type(emailInput(), 'x@y.com');
     await user.click(joinButton());
 
-    expect(await screen.findByRole('alert'))
-      .toHaveTextContent('email: Required; email: Too short');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'email: Required; email: Too short'
+    );
   });
 
   it('falls back to the plain error message when there are no details', async () => {
     const user = userEvent.setup();
     mockFetch({
-      [SUBSCRIBE]: jsonResponse({ error: 'Too many signup attempts, please try again later.' }, { status: 429 }),
+      [SUBSCRIBE]: jsonResponse(
+        { error: 'Too many signup attempts, please try again later.' },
+        { status: 429 }
+      ),
     });
 
     renderFooter();
     await user.type(emailInput(), 'x@y.com');
     await user.click(joinButton());
 
-    expect(await screen.findByRole('alert'))
-      .toHaveTextContent('Too many signup attempts, please try again later.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Too many signup attempts, please try again later.'
+    );
   });
 
   it('falls back to the HTTP status when the body is unreadable', async () => {
@@ -186,7 +208,9 @@ describe('newsletter form — errors', () => {
       [SUBSCRIBE]: {
         ok: false,
         status: 502,
-        json: async () => { throw new Error('not json'); },
+        json: async () => {
+          throw new Error('not json');
+        },
       },
     });
 
@@ -194,7 +218,9 @@ describe('newsletter form — errors', () => {
     await user.type(emailInput(), 'x@y.com');
     await user.click(joinButton());
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Request failed (HTTP 502).');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Request failed (HTTP 502).'
+    );
   });
 
   it('reports a connection failure without crashing', async () => {
@@ -205,8 +231,9 @@ describe('newsletter form — errors', () => {
     await user.type(emailInput(), 'x@y.com');
     await user.click(joinButton());
 
-    expect(await screen.findByRole('alert'))
-      .toHaveTextContent('Could not reach the server. Check your connection and try again.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not reach the server. Check your connection and try again.'
+    );
   });
 
   it('keeps the typed value so the user can retry', async () => {
@@ -241,8 +268,13 @@ describe('newsletter form — errors', () => {
     mockFetch({
       [SUBSCRIBE]: () => {
         call += 1;
-        if (call === 1) return Promise.resolve(jsonResponse({ error: 'first failure' }, { status: 500 }));
-        return new Promise((resolve) => { resolveSecond = () => resolve(jsonResponse({ ok: true })); });
+        if (call === 1)
+          return Promise.resolve(
+            jsonResponse({ error: 'first failure' }, { status: 500 })
+          );
+        return new Promise((resolve) => {
+          resolveSecond = () => resolve(jsonResponse({ ok: true }));
+        });
       },
     });
 
