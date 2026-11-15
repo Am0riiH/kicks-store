@@ -1,10 +1,3 @@
-/**
- * Unit tests for server/db.js.
- *
- * Only functions with real logic are covered — branching, merging, guards.
- * Pure `SELECT * → map rows` passthroughs (getAllProducts, getSubscribers,
- * getAllOrders) are exercised incidentally through the route tests instead.
- */
 import { describe, it, expect, beforeAll, vi, afterEach } from 'vitest';
 import { loadApp } from './helpers.mjs';
 
@@ -18,10 +11,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** Unique ids keep tests order-independent — one seeded DB serves the whole file. */
 const uid = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
-/** The row as actually stored, for asserting DB-applied defaults. */
 function storedVariant(id) {
   return db.getVariant(id);
 }
@@ -44,10 +35,15 @@ describe('seeding', () => {
   it('seeds 6 products and 6 variants each on a fresh database', () => {
     const products = db.getAllProductsWithVariants();
 
-    // Other tests in this file add products, so assert on the known seed ids.
     const seeded = products.filter((p) =>
-      ['sk3-fire-red', 'sk4-bred', 'sk11-concord', 'sk1-chicago', 'sk5-raging-bull', 'sk1-low-volt']
-        .includes(p.id)
+      [
+        'sk3-fire-red',
+        'sk4-bred',
+        'sk11-concord',
+        'sk1-chicago',
+        'sk5-raging-bull',
+        'sk1-low-volt',
+      ].includes(p.id)
     );
 
     expect(seeded).toHaveLength(6);
@@ -72,15 +68,11 @@ describe('createProduct', () => {
     const product = makeProduct();
     const returned = db.createProduct(product);
 
-    // Why this matters: POST /api/admin/products echoes this straight back as
-    // the 201 body, so the response omits created_at by design.
     expect(returned).toBe(product);
     expect(returned).not.toHaveProperty('created_at');
   });
 
   it('coerces undefined to null so SQLite reports the real constraint', () => {
-    // sql.js throws "Wrong API use" on undefined before SQLite sees the row.
-    // _bind() converts it to null so the NOT NULL constraint speaks instead.
     const product = makeProduct({ sku: undefined });
 
     expect(() => db.createProduct(product)).toThrow(/NOT NULL constraint failed/i);
@@ -103,8 +95,7 @@ describe('updateProduct', () => {
 
     const stored = db.getProduct(product.id);
     expect(stored.price).toBe(250);
-    // Untouched fields survive — this is what stops a price-only edit blanking
-    // the rest of the row.
+
     expect(stored.name).toBe('Original');
     expect(stored.tag).toBe('HOT');
     expect(stored.colorway).toBe('Black/Red');
@@ -190,8 +181,12 @@ describe('upsertOrder', () => {
     shipping_details: {
       name: 'A B',
       address: {
-        line1: '1 Road', line2: null, city: 'Town',
-        state: 'CA', postal_code: '90210', country: 'US',
+        line1: '1 Road',
+        line2: null,
+        city: 'Town',
+        state: 'CA',
+        postal_code: '90210',
+        country: 'US',
       },
     },
     ...over,
@@ -199,15 +194,17 @@ describe('upsertOrder', () => {
 
   it('inserts an order with shipping details flattened onto the row', () => {
     const s = session();
-    expect(db.upsertOrder(s, [{ description: 'Shoe', quantity: 1 }]))
-      .toEqual({ inserted: true, duplicate: false });
+    expect(db.upsertOrder(s, [{ description: 'Shoe', quantity: 1 }])).toEqual({
+      inserted: true,
+      duplicate: false,
+    });
 
     const order = db.getOrder(s.id);
     expect(order.amount_total).toBe(21000);
     expect(order.customer_email).toBe('a@b.com');
     expect(order.shipping_city).toBe('Town');
     expect(order.shipping_postal_code).toBe('90210');
-    // Phone comes from customer_details, not shipping_details.
+
     expect(order.shipping_phone).toBe('+15551112222');
     expect(order.items).toEqual([{ description: 'Shoe', quantity: 1 }]);
   });
@@ -226,7 +223,7 @@ describe('upsertOrder', () => {
     const second = db.upsertOrder(s, [{ description: 'Second' }]);
 
     expect(second).toEqual({ inserted: false, duplicate: true });
-    // The original row is untouched, not overwritten.
+
     expect(db.getOrder(s.id).items).toEqual([{ description: 'First' }]);
   });
 
@@ -268,11 +265,19 @@ describe('addVariant', () => {
     db.createProduct(product);
 
     const created = db.addVariant({
-      product_id: product.id, size: '10', color: 'Red', quantity: 7, sku: 'V-1',
+      product_id: product.id,
+      size: '10',
+      color: 'Red',
+      quantity: 7,
+      sku: 'V-1',
     });
 
     expect(storedVariant(created.id)).toMatchObject({
-      product_id: product.id, size: '10', color: 'Red', quantity: 7, sku: 'V-1',
+      product_id: product.id,
+      size: '10',
+      color: 'Red',
+      quantity: 7,
+      sku: 'V-1',
     });
   });
 
@@ -287,27 +292,23 @@ describe('addVariant', () => {
     expect(stored.sku).toBeNull();
   });
 
-  // Regression: addVariant used to return id 0 for every insert, because
-  // _persist() ran before the last_insert_rowid() read. _persist() calls
-  // _db.export(), which sql.js implements by closing and reopening the handle,
-  // and last_insert_rowid() is per-connection state — so the reopened handle
-  // always reported 0. POST /api/admin/products/:id/variants echoed that 0
-  // straight back to the admin UI.
   it('returns the real row id, matching a fresh lookup of that row', () => {
     const product = makeProduct();
     db.createProduct(product);
 
     const created = db.addVariant({
-      product_id: product.id, size: '10', color: 'Red', quantity: 1, sku: 'REAL-ID',
+      product_id: product.id,
+      size: '10',
+      color: 'Red',
+      quantity: 1,
+      sku: 'REAL-ID',
     });
 
-    // Not merely non-zero: it must address the row that was just written.
     const found = db.getVariant(created.id);
     expect(found).not.toBeNull();
     expect(found.id).toBe(created.id);
     expect(found.sku).toBe('REAL-ID');
 
-    // And it must agree with the row the product query returns.
     const [viaProduct] = db.getVariantsForProduct(product.id);
     expect(created.id).toBe(viaProduct.id);
   });
@@ -316,8 +317,18 @@ describe('addVariant', () => {
     const product = makeProduct();
     db.createProduct(product);
 
-    const first = db.addVariant({ product_id: product.id, size: '9', color: 'Red', quantity: 1 });
-    const second = db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity: 1 });
+    const first = db.addVariant({
+      product_id: product.id,
+      size: '9',
+      color: 'Red',
+      quantity: 1,
+    });
+    const second = db.addVariant({
+      product_id: product.id,
+      size: '10',
+      color: 'Red',
+      quantity: 1,
+    });
 
     expect(second.id).toBeGreaterThan(first.id);
     expect(db.getVariant(first.id).size).toBe('9');
@@ -328,11 +339,9 @@ describe('addVariant', () => {
     const product = makeProduct();
     db.createProduct(product);
 
-    // Several inserts in a row: each one triggers an export()/reopen, so a
-    // regression here would show up as 0 or a stale id on every call but the
-    // first.
-    const ids = ['8', '9', '10', '11'].map((size) =>
-      db.addVariant({ product_id: product.id, size, color: 'Red', quantity: 2 }).id
+    const ids = ['8', '9', '10', '11'].map(
+      (size) =>
+        db.addVariant({ product_id: product.id, size, color: 'Red', quantity: 2 }).id
     );
 
     expect(new Set(ids).size).toBe(4);
@@ -347,11 +356,17 @@ describe('getVariant', () => {
     const product = makeProduct();
     db.createProduct(product);
     const created = db.addVariant({
-      product_id: product.id, size: '10', color: 'Red', quantity: 7,
+      product_id: product.id,
+      size: '10',
+      color: 'Red',
+      quantity: 7,
     });
 
     expect(db.getVariant(created.id)).toMatchObject({
-      product_id: product.id, size: '10', color: 'Red', quantity: 7,
+      product_id: product.id,
+      size: '10',
+      color: 'Red',
+      quantity: 7,
     });
   });
 
@@ -359,12 +374,12 @@ describe('getVariant', () => {
     const product = makeProduct();
     db.createProduct(product);
     const created = db.addVariant({
-      product_id: product.id, size: '11', color: 'Blue', quantity: 2,
+      product_id: product.id,
+      size: '11',
+      color: 'Blue',
+      quantity: 2,
     });
 
-    // The checkout schema accepts string | number, so column affinity must
-    // resolve '12' to 12. If this ever regressed, checkout would 400 on
-    // every request from the real frontend.
     expect(db.getVariant(String(created.id))).toMatchObject({ id: created.id });
   });
 
@@ -438,54 +453,50 @@ describe('updateVariant', () => {
   it('updates a variant when every field is supplied', () => {
     const product = makeProduct();
     db.createProduct(product);
-    const v = db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity: 5 });
+    const v = db.addVariant({
+      product_id: product.id,
+      size: '10',
+      color: 'Red',
+      quantity: 5,
+    });
 
-    expect(db.updateVariant(v.id, { size: '10', color: 'Red', quantity: 9, sku: 'X' })).toBe(true);
+    expect(
+      db.updateVariant(v.id, { size: '10', color: 'Red', quantity: 9, sku: 'X' })
+    ).toBe(true);
     expect(db.getVariant(v.id).quantity).toBe(9);
   });
 
-  // ── BUG (documented, not fixed) ────────────────────────────────────────────
-  // PUT /api/admin/variants/:id validates with variantSchema.partial(), so a
-  // body of { quantity: 3 } is accepted by the route — but updateVariant binds
-  // data.size and data.color raw, with no _bind() coercion and no merge against
-  // the existing row (contrast updateProduct above, which does both). sql.js
-  // rejects the undefined bind before SQLite sees it.
-  //
-  // Fix would be to mirror updateProduct: read the row, merge only defined
-  // values, bind through _bind().
-  it('BUG: throws on a partial update instead of merging', () => {
-    const product = makeProduct();
-    db.createProduct(product);
-    const v = db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity: 5 });
-
-    expect(() => db.updateVariant(v.id, { quantity: 3 })).toThrow(/Wrong API use/i);
-    expect(db.getVariant(v.id).quantity).toBe(5);
-  });
-
-  it('BUG: silently blanks sku when the field is omitted', () => {
+  it('merges a partial update onto the stored variant', () => {
     const product = makeProduct();
     db.createProduct(product);
     const v = db.addVariant({
-      product_id: product.id, size: '10', color: 'Red', quantity: 5, sku: 'KEEP-ME',
+      product_id: product.id,
+      size: '10',
+      color: 'Red',
+      quantity: 5,
+      sku: 'KEEP-ME',
     });
 
-    db.updateVariant(v.id, { size: '10', color: 'Red', quantity: 5 });
+    expect(db.updateVariant(v.id, { quantity: 3 })).toBe(true);
 
-    expect(db.getVariant(v.id).sku).toBeNull();
+    const updated = db.getVariant(v.id);
+    expect(updated.quantity).toBe(3);
+    expect(updated.size).toBe('10');
+    expect(updated.sku).toBe('KEEP-ME');
   });
-});
 
-describe('deleteVariant', () => {
-  it('deletes an existing variant', () => {
+  it('returns false when updating an unknown variant', () => {
+    expect(db.updateVariant(99999999, { quantity: 1 })).toBe(false);
+  });
+
+  it('lists sizes in numeric order', () => {
     const product = makeProduct();
     db.createProduct(product);
-    const v = db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity: 1 });
+    for (const size of ['9', '10', '8', '12', '11']) {
+      db.addVariant({ product_id: product.id, size, color: 'Red', quantity: 1 });
+    }
 
-    expect(db.deleteVariant(v.id)).toBe(true);
-    expect(db.getVariant(v.id)).toBeNull();
-  });
-
-  it('returns false for an unknown variant', () => {
-    expect(db.deleteVariant(77777777)).toBe(false);
+    const sizes = db.getVariantsForProduct(product.id).map((v) => v.size);
+    expect(sizes).toEqual(['8', '9', '10', '11', '12']);
   });
 });

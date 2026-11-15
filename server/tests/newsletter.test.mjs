@@ -7,7 +7,7 @@ let db;
 
 beforeAll(async () => {
   ({ app, db } = await loadApp());
-  // addNewsletterContact warns on every call while RESEND_API_KEY is unset.
+
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
@@ -80,9 +80,6 @@ describe('POST /api/newsletter/subscribe', () => {
   it('still succeeds, reporting synced:false, when Resend is not configured', async () => {
     const res = await subscribe(uniqueEmail());
 
-    // RESEND_API_KEY is unset in tests, so the contact is stored locally only.
-    // The request must still succeed — a mailing-list sync failure must never
-    // lose a signup that is already safely in the database.
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true, alreadySubscribed: false, synced: false });
   });
@@ -98,15 +95,18 @@ describe('POST /api/newsletter/subscribe', () => {
 
   it('still returns 200 when the Resend sync throws', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const emailModule = (await import('../email.js')).default ?? (await import('../email.js'));
-    vi.spyOn(emailModule, 'addNewsletterContact').mockRejectedValue(new Error('resend down'));
+    const emailModule =
+      (await import('../email.js')).default ?? (await import('../email.js'));
+    vi.spyOn(emailModule, 'addNewsletterContact').mockRejectedValue(
+      new Error('resend down')
+    );
 
     const address = uniqueEmail();
     const res = await subscribe(address);
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
-    // The subscriber is persisted regardless.
+
     expect(db.getSubscribers().some((s) => s.email === address)).toBe(true);
   });
 

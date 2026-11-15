@@ -1,4 +1,11 @@
-import { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+} from 'react';
 
 const CartContext = createContext(null);
 
@@ -32,7 +39,10 @@ export function CartProvider({ children }) {
           return i;
         });
       }
-      return [...prev, { ...product, qty: Math.min(qtyToAdd, product.max_qty || Infinity) }];
+      return [
+        ...prev,
+        { ...product, qty: Math.min(qtyToAdd, product.max_qty || Infinity) },
+      ];
     });
     setCartOpen(true);
   }, []);

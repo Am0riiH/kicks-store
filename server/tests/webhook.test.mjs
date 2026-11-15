@@ -1,33 +1,14 @@
-/**
- * POST /api/webhook — signature verification, persistence and stock movement.
- *
- * Two structural facts drive the shape of these tests:
- *
- *  1. The route is registered BEFORE express.json() with express.raw(), so the
- *     request must be sent as a Buffer with Content-Type: application/json.
- *     Using .send({...}) would give the handler a parsed object and every
- *     signature check would fail for the wrong reason.
- *
- *  2. The handler ACKs with 200 at index.js:124 BEFORE it writes to the
- *     database, so supertest resolves while the upsert is still in flight.
- *     Assertions on stored state must poll — hence waitFor().
- */
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import nock from 'nock';
-import {
-  loadApp,
-  signWebhook,
-  checkoutSessionCompleted,
-  waitFor,
-} from './helpers.mjs';
+import { loadApp, signWebhook, checkoutSessionCompleted, waitFor } from './helpers.mjs';
 
 let app;
 let db;
 
 beforeAll(async () => {
   ({ app, db } = await loadApp());
-  // The handler logs the entire session object; keep the suite output readable.
+
   vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 
@@ -35,25 +16,14 @@ afterEach(() => {
   nock.cleanAll();
 });
 
-/**
- * POSTs a raw JSON body the way Stripe's CLI does.
- *
- * `payload` must be sent as a STRING, not a Buffer: supertest re-serialises a
- * Buffer body into {"type":"Buffer","data":[…]} when the content type is JSON,
- * which changes the bytes and breaks every signature check. A string passes
- * through untouched, so express.raw() hands the handler exactly what we signed.
- */
 function postWebhook(payload, signature) {
-  const req = request(app)
-    .post('/api/webhook')
-    .set('Content-Type', 'application/json');
+  const req = request(app).post('/api/webhook').set('Content-Type', 'application/json');
 
   if (signature !== undefined) req.set('stripe-signature', signature);
 
   return req.send(payload);
 }
 
-/** Stubs the line-items lookup the handler makes after verifying the event. */
 function interceptLineItems(sessionId, items) {
   return nock('https://api.stripe.com')
     .get(`/v1/checkout/sessions/${sessionId}/line_items`)
@@ -74,6 +44,40 @@ function interceptLineItems(sessionId, items) {
       })),
     });
 }
+
+describe('failure handling', () => {
+  it('answers 500 when the order cannot be stored so Stripe retries', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(db, 'upsertOrder').mockImplementation(() => {
+      throw new Error('disk full');
+    });
+    const event = checkoutSessionCompleted();
+    interceptLineItems(event.data.object.id, []);
+    const { payload, signature } = signWebhook(event);
+
+    const res = await postWebhook(payload, signature);
+
+    expect(res.status).toBe(500);
+    vi.restoreAllMocks();
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  it('answers 500 in production when the webhook secret is missing', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const originalSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const originalEnv = process.env.NODE_ENV;
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+    process.env.NODE_ENV = 'production';
+
+    try {
+      const res = await postWebhook('{}', 'irrelevant');
+      expect(res.status).toBe(500);
+    } finally {
+      process.env.STRIPE_WEBHOOK_SECRET = originalSecret;
+      process.env.NODE_ENV = originalEnv;
+    }
+  });
+});
 
 describe('signature verification', () => {
   it('accepts a correctly signed event', async () => {
@@ -121,7 +125,6 @@ describe('signature verification', () => {
     const { payload, signature } = signWebhook(event);
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    // Forge the amount, keep the original signature.
     const forged = payload.replace('"amount_total":21000', '"amount_total":1');
     expect(forged).not.toBe(payload);
 
@@ -151,7 +154,6 @@ describe('signature verification', () => {
       const event = checkoutSessionCompleted();
       const res = await postWebhook(JSON.stringify(event), 'irrelevant');
 
-      // Returns 200 but writes nothing — the deployment footgun this warns about.
       expect(res.status).toBe(200);
       expect(spy).toHaveBeenCalled();
       expect(db.getOrder(event.data.object.id)).toBeNull();
@@ -195,10 +197,15 @@ describe('checkout.session.completed', () => {
       return found?.items?.length ? found : null;
     });
 
-    expect(order.items).toEqual([{
-      description: 'Chicago', quantity: 2, amount: 36000,
-      currency: 'usd', variant_id: '1',
-    }]);
+    expect(order.items).toEqual([
+      {
+        description: 'Chicago',
+        quantity: 2,
+        amount: 36000,
+        currency: 'usd',
+        variant_id: '1',
+      },
+    ]);
   });
 
   it('decrements stock for each line item carrying a variant_id', async () => {
@@ -219,9 +226,16 @@ describe('checkout.session.completed', () => {
   });
 
   it('refuses to oversell when stock has moved since checkout', async () => {
-    const product = { id: `low-stock-${Date.now()}`, name: 'Low', colorway: 'X',
-      category: 'Low-Top', price: 10, sku: `LS-${Date.now()}`, tag: null,
-      image: 'https://example.com/l.png' };
+    const product = {
+      id: `low-stock-${Date.now()}`,
+      name: 'Low',
+      colorway: 'X',
+      category: 'Low-Top',
+      price: 10,
+      sku: `LS-${Date.now()}`,
+      tag: null,
+      image: 'https://example.com/l.png',
+    };
     db.createProduct(product);
     db.addVariant({ product_id: product.id, size: '10', color: 'X', quantity: 1 });
     const variant = db.getVariantsForProduct(product.id)[0];
@@ -236,8 +250,6 @@ describe('checkout.session.completed', () => {
 
     await postWebhook(payload, signature);
 
-    // The order is still recorded — the money was taken — but stock is untouched
-    // and the conflict is logged for manual review.
     await waitFor(() => db.getOrder(sessionId));
     expect(db.getVariant(variant.id).quantity).toBe(1);
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('OVERSELL CONFLICT'));
@@ -258,7 +270,6 @@ describe('checkout.session.completed', () => {
     const res = await postWebhook(payload, signature);
     expect(res.status).toBe(200);
 
-    // The order is still persisted, just with no items.
     const order = await waitFor(() => db.getOrder(sessionId));
     expect(order.items).toEqual([]);
   });
@@ -273,12 +284,15 @@ describe('idempotency', () => {
     const sessionId = event.data.object.id;
     const { payload, signature } = signWebhook(event);
 
-    interceptLineItems(sessionId, [{ description: 'Bull', quantity: 1, variant_id: variant.id }]);
+    interceptLineItems(sessionId, [
+      { description: 'Bull', quantity: 1, variant_id: variant.id },
+    ]);
     await postWebhook(payload, signature);
     await waitFor(() => db.getVariant(variant.id).quantity === before - 1);
 
-    // Stripe delivers at least once — the same event can arrive again.
-    interceptLineItems(sessionId, [{ description: 'Bull', quantity: 1, variant_id: variant.id }]);
+    interceptLineItems(sessionId, [
+      { description: 'Bull', quantity: 1, variant_id: variant.id },
+    ]);
     const second = await postWebhook(payload, signature);
 
     expect(second.status).toBe(200);
@@ -292,7 +306,9 @@ describe('idempotency', () => {
 describe('other event types', () => {
   it('acknowledges checkout.session.expired without persisting anything', async () => {
     const event = {
-      id: 'evt_expired', object: 'event', type: 'checkout.session.expired',
+      id: 'evt_expired',
+      object: 'event',
+      type: 'checkout.session.expired',
       data: { object: { id: 'cs_test_expired_1', customer_details: {} } },
     };
     const { payload, signature } = signWebhook(event);
@@ -305,7 +321,9 @@ describe('other event types', () => {
 
   it('acknowledges payment_intent.payment_failed', async () => {
     const event = {
-      id: 'evt_failed', object: 'event', type: 'payment_intent.payment_failed',
+      id: 'evt_failed',
+      object: 'event',
+      type: 'payment_intent.payment_failed',
       data: { object: { id: 'pi_1', last_payment_error: { message: 'declined' } } },
     };
     const { payload, signature } = signWebhook(event);
@@ -315,7 +333,10 @@ describe('other event types', () => {
 
   it('acknowledges an unrecognised event type', async () => {
     const event = {
-      id: 'evt_other', object: 'event', type: 'invoice.paid', data: { object: {} },
+      id: 'evt_other',
+      object: 'event',
+      type: 'invoice.paid',
+      data: { object: {} },
     };
     const { payload, signature } = signWebhook(event);
 
@@ -325,8 +346,6 @@ describe('other event types', () => {
 
 describe('middleware placement', () => {
   it('is not JSON-parsed — the raw body must survive for signature checks', async () => {
-    // If express.json() ever moved above this route, req.body would be an
-    // object and constructEvent would reject every real Stripe delivery.
     const event = checkoutSessionCompleted();
     const { payload, signature } = signWebhook(event);
     interceptLineItems(event.data.object.id, []);
@@ -338,7 +357,6 @@ describe('middleware placement', () => {
   });
 
   it('is not rate limited — Stripe retries must never be throttled', async () => {
-    // Registered before app.use('/api/', generalApiLimiter), so bursts pass.
     for (let i = 0; i < 12; i += 1) {
       const event = checkoutSessionCompleted();
       const { payload, signature } = signWebhook(event);

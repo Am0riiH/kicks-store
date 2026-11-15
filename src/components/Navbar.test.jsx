@@ -5,12 +5,6 @@ import Navbar from './Navbar.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { renderWithProviders, mockFetch, jsonResponse, API } from '../test/utils.jsx';
 
-/**
- * Navbar owns the cart drawer and the checkout button — the handoff to Stripe
- * and the last place the cart is read before money moves. Those are the parts
- * covered here; the marketing links are not.
- */
-
 const CHECKOUT = 'POST /api/create-checkout-session';
 
 const item = (over = {}) => ({
@@ -25,17 +19,20 @@ const item = (over = {}) => ({
   ...over,
 });
 
-/** Seeds the cart via localStorage, which CartProvider reads on mount. */
 const seedCart = (items) => localStorage.setItem('cart', JSON.stringify(items));
 
-/** Opens the drawer so its contents are interactive. */
 function OpenCart() {
   const { setCartOpen } = useCart();
   return <button onClick={() => setCartOpen(true)}>open-cart-probe</button>;
 }
 
 const renderNavbar = () =>
-  renderWithProviders(<><Navbar /><OpenCart /></>);
+  renderWithProviders(
+    <>
+      <Navbar />
+      <OpenCart />
+    </>
+  );
 
 const openDrawer = async (user) => {
   await user.click(screen.getByText('open-cart-probe'));
@@ -43,7 +40,6 @@ const openDrawer = async (user) => {
 };
 
 beforeEach(() => {
-  // window.location.href assignment is how checkout hands off to Stripe.
   delete window.location;
   window.location = { href: '' };
 });
@@ -82,10 +78,10 @@ describe('cart drawer', () => {
     expect(screen.getByText('Subtotal')).toBeInTheDocument();
     expect(screen.getByText('Tax (8%)')).toBeInTheDocument();
     expect(screen.getByText('Total')).toBeInTheDocument();
-    // $200.00 appears twice: the line total (100 × 2) and the subtotal.
+
     expect(screen.getAllByText('$200.00').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('$16.00')).toBeInTheDocument();   // 8% tax
-    expect(screen.getByText('$216.00')).toBeInTheDocument();  // total
+    expect(screen.getByText('$16.00')).toBeInTheDocument();
+    expect(screen.getByText('$216.00')).toBeInTheDocument();
   });
 
   it('removes an item', async () => {
@@ -108,14 +104,10 @@ describe('cart drawer', () => {
     await openDrawer(user);
 
     await user.click(screen.getByLabelText('Increase quantity for Chicago'));
-    await waitFor(() =>
-      expect(JSON.parse(localStorage.getItem('cart'))[0].qty).toBe(3)
-    );
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('cart'))[0].qty).toBe(3));
 
     await user.click(screen.getByLabelText('Decrease quantity for Chicago'));
-    await waitFor(() =>
-      expect(JSON.parse(localStorage.getItem('cart'))[0].qty).toBe(2)
-    );
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('cart'))[0].qty).toBe(2));
   });
 
   it('keeps the decorative receipt number stable across re-renders', async () => {
@@ -130,13 +122,8 @@ describe('cart drawer', () => {
 
     const before = readReceipt();
 
-    // Any cart mutation re-renders the drawer. The number is generated with
-    // Math.random(), which used to run inline in the JSX — so it changed on
-    // every render and the customer watched their receipt renumber itself.
     await user.click(screen.getByLabelText('Increase quantity for Chicago'));
-    await waitFor(() =>
-      expect(JSON.parse(localStorage.getItem('cart'))[0].qty).toBe(2)
-    );
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('cart'))[0].qty).toBe(2));
 
     expect(readReceipt()).toBe(before);
   });
@@ -242,9 +229,10 @@ describe('checkout button', () => {
     seedCart([item()]);
     let release;
     mockFetch({
-      [CHECKOUT]: () => new Promise((resolve) => {
-        release = () => resolve(jsonResponse({ url: 'https://checkout.stripe.com/x' }));
-      }),
+      [CHECKOUT]: () =>
+        new Promise((resolve) => {
+          release = () => resolve(jsonResponse({ url: 'https://checkout.stripe.com/x' }));
+        }),
     });
     renderNavbar();
     await clickCheckout(user);
@@ -296,8 +284,9 @@ describe('checkout button', () => {
     renderNavbar();
     await clickCheckout(user);
 
-    expect(await screen.findByRole('alert'))
-      .toHaveTextContent('No checkout URL returned from server.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No checkout URL returned from server.'
+    );
     expect(window.location.href).toBe('');
   });
 

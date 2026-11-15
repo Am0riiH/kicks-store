@@ -29,13 +29,15 @@ const UPDATE = process.argv.includes('--update');
 
 function runEslint() {
   // eslint exits non-zero when it finds errors, which execFileSync treats as a
-  // throw — the JSON report still arrives on stdout, so read it either way.
+
   // Resolve eslint's own binary rather than going through npx with shell:true,
-  // which Node 22+ deprecation-warns about and would need escaping anyway.
+
   const bin = path.join(ROOT, 'node_modules', 'eslint', 'bin', 'eslint.js');
   try {
     return execFileSync(process.execPath, [bin, '.', '-f', 'json'], {
-      cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
     });
   } catch (err) {
     if (err.stdout) return err.stdout;
@@ -54,7 +56,7 @@ const current = report.reduce(
     errors: acc.errors + file.errorCount,
     warnings: acc.warnings + file.warningCount,
   }),
-  { errors: 0, warnings: 0 },
+  { errors: 0, warnings: 0 }
 );
 
 const baseline = fs.existsSync(BASELINE_FILE)
@@ -71,7 +73,7 @@ if (UPDATE) {
   }
   fs.writeFileSync(
     BASELINE_FILE,
-    `${JSON.stringify({ ...current, note: 'Lint ratchet. Lower with: node scripts/lint-baseline.mjs --update' }, null, 2)}\n`,
+    `${JSON.stringify({ ...current, note: 'Lint ratchet. Lower with: node scripts/lint-baseline.mjs --update' }, null, 2)}\n`
   );
   console.log('\n✔ Baseline lowered.');
   process.exit(0);
@@ -79,10 +81,14 @@ if (UPDATE) {
 
 const worse = [];
 if (current.errors > baseline.errors) {
-  worse.push(`errors ${baseline.errors} → ${current.errors} (+${current.errors - baseline.errors})`);
+  worse.push(
+    `errors ${baseline.errors} → ${current.errors} (+${current.errors - baseline.errors})`
+  );
 }
 if (current.warnings > baseline.warnings) {
-  worse.push(`warnings ${baseline.warnings} → ${current.warnings} (+${current.warnings - baseline.warnings})`);
+  worse.push(
+    `warnings ${baseline.warnings} → ${current.warnings} (+${current.warnings - baseline.warnings})`
+  );
 }
 
 if (worse.length) {
@@ -96,5 +102,5 @@ const better = current.errors < baseline.errors || current.warnings < baseline.w
 console.log(
   better
     ? '\n✔ Lint improved. Run `node scripts/lint-baseline.mjs --update` to lock it in.'
-    : '\n✔ Lint unchanged against baseline.',
+    : '\n✔ Lint unchanged against baseline.'
 );

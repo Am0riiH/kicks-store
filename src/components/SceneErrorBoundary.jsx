@@ -1,12 +1,6 @@
 import React from 'react';
 import { SceneContext } from '../context/SceneContext.jsx';
 
-/**
- * SceneErrorBoundary catches errors that happen while lazy-loading
- * the Three.js chunk (e.g. network failure) or during WebGL/GLTF parsing.
- * If an error occurs, it sets `sceneError` in SceneContext so the rest of the
- * app (like Home.jsx) knows to gracefully degrade and keep the 2D poster visible permanently.
- */
 export default class SceneErrorBoundary extends React.Component {
   static contextType = SceneContext;
 
@@ -15,8 +9,6 @@ export default class SceneErrorBoundary extends React.Component {
     this.state = { hasError: false };
   }
 
-  // React passes the error here; this boundary only needs to know that one
-  // happened. Underscore-prefixed to mark it intentionally unused.
   static getDerivedStateFromError(_error) {
     return { hasError: true };
   }

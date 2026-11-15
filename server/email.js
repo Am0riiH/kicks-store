@@ -1,71 +1,20 @@
-/**
- * server/email.js — Resend email module
- * ======================================
- * Sends transactional emails via Resend (https://resend.com).
- * Zero external CSS — all styles are inline for maximum email client compat.
- *
- * ── Manual setup required (one-time) ─────────────────────────────────────────
- *
- *  1. Sign up at https://resend.com  (free tier: 3,000 emails/month)
- *  2. Go to API Keys → Create API Key → copy the re_… value
- *  3. Paste it into server/.env as:  RESEND_API_KEY=re_YOUR_KEY_HERE
- *
- *  For PRODUCTION (custom sender domain):
- *  4. Go to Domains → Add Domain → follow the DNS verification steps
- *  5. Replace FROM_ADDRESS below with e.g. "orders@yourstore.com"
- *
- * ── Test/sandbox sending ──────────────────────────────────────────────────────
- *  While RESEND_API_KEY is not set, sendOrderConfirmation() logs a warning and
- *  returns safely — the webhook keeps working without crashing.
- *
- *  Resend's sandbox sender "onboarding@resend.dev" can only deliver to the
- *  email address that owns the Resend account. For real end-user delivery you
- *  must verify a custom domain and update FROM_ADDRESS.
- */
-
 'use strict';
 
 const { Resend } = require('resend');
 
-// ─── Sender configuration ─────────────────────────────────────────────────────
-// PRODUCTION: replace with your verified domain address, e.g. "orders@yourstore.com"
-// TEST:       "onboarding@resend.dev" works immediately but only delivers to your
-//             own Resend account's email — useful for smoke-testing the integration.
-const FROM_ADDRESS = process.env.EMAIL_FROM || 'Air Jordan Store <hello@amoridev.com>';
+const FROM_ADDRESS = process.env.EMAIL_FROM || 'Sneakers Store <hello@amoridev.com>';
 
-// ─── HTML email template ──────────────────────────────────────────────────────
-// • All styles are inline — email clients ignore <style> tags and external CSS
-// • Light background (#ffffff / #f9f9f9) for compatibility: dark backgrounds
-//   are overridden or partially inverted by Gmail, Outlook, Apple Mail dark mode
-// • Brand accent = #d7ff3e (volt green) used sparingly on key elements
-// • Monospace font for order IDs / amounts matches the site's aesthetic
-
-/**
- * @param {object} opts
- * @param {string}  opts.customerName   — display name or null
- * @param {string}  opts.customerEmail  — recipient address
- * @param {string}  opts.sessionId      — Stripe session ID for reference
- * @param {number}  opts.amountTotal    — in cents
- * @param {string}  opts.currency       — e.g. 'usd'
- * @param {Array}   opts.items          — [{ description, quantity, amount, currency }]
- * @param {boolean} opts.isTest         — true when using test Stripe keys
- */
 function buildOrderEmailHtml(opts) {
-  const {
-    customerName,
-    sessionId,
-    amountTotal,
-    currency,
-    items,
-    isTest,
-  } = opts;
+  const { customerName, sessionId, amountTotal, currency, items, isTest } = opts;
 
-  const greeting     = customerName ? `Hey ${customerName.split(' ')[0]},` : 'Hey there,';
+  const greeting = customerName ? `Hey ${customerName.split(' ')[0]},` : 'Hey there,';
   const totalDisplay = `$${(amountTotal / 100).toFixed(2)} ${currency.toUpperCase()}`;
-  const shortId      = sessionId.slice(-12).toUpperCase();
+  const shortId = sessionId.slice(-12).toUpperCase();
 
   const itemRows = items.length
-    ? items.map(item => `
+    ? items
+        .map(
+          (item) => `
         <tr>
           <td style="padding: 12px 0; border-bottom: 1px solid #eeeeee; font-size: 14px; color: #333333;">
             ${item.description ?? 'Item'}
@@ -76,25 +25,29 @@ function buildOrderEmailHtml(opts) {
           <td style="padding: 12px 0; border-bottom: 1px solid #eeeeee; font-size: 14px; color: #333333; text-align: right; font-family: 'Courier New', monospace;">
             $${(item.amount / 100).toFixed(2)}
           </td>
-        </tr>`).join('')
+        </tr>`
+        )
+        .join('')
     : `<tr><td colspan="3" style="padding: 12px 0; font-size: 14px; color: #888888; text-align: center;">
          (Item details not available)
        </td></tr>`;
 
-  const testBanner = isTest ? `
+  const testBanner = isTest
+    ? `
     <div style="background-color: #fffbe6; border: 1px solid #ffe58f; border-radius: 6px;
                 padding: 10px 16px; margin-bottom: 24px; font-size: 12px; color: #7d6608;
                 font-family: 'Courier New', monospace; text-align: center; text-transform: uppercase;
                 letter-spacing: 0.08em;">
       🧪 Test mode — no real charge was made
-    </div>` : '';
+    </div>`
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Order Confirmed — Air Jordan Store</title>
+  <title>Order Confirmed — Sneakers Store</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
 
@@ -117,7 +70,7 @@ function buildOrderEmailHtml(opts) {
               </p>
               <p style="margin: 8px 0 0; font-size: 11px; font-weight: 600; color: #aaaaaa;
                         letter-spacing: 0.14em; text-transform: uppercase;">
-                Air Jordan Store
+                Sneakers Store
               </p>
             </td>
           </tr>
@@ -223,7 +176,7 @@ function buildOrderEmailHtml(opts) {
             <td style="background-color: #111111; padding: 24px 40px; text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #666666;
                         letter-spacing: 0.08em; text-transform: uppercase;">
-                Air Jordan Store · Your kicks, delivered.
+                Sneakers Store · Your kicks, delivered.
               </p>
               <p style="margin: 8px 0 0; font-size: 10px; color: #444444;
                         font-family: 'Courier New', monospace;">
@@ -243,84 +196,61 @@ function buildOrderEmailHtml(opts) {
 </html>`;
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
-
-/**
- * Send an order confirmation email.
- *
- * Fire-and-forget design: this function is intentionally NOT awaited in the
- * webhook handler (see the tradeoff comment in index.js). If Resend's API is
- * slow or fails, Stripe does NOT retry the webhook because we've already
- * responded 200. The order is safe in the DB; the email failure is logged.
- *
- * @param {object} opts  — same shape as buildOrderEmailHtml
- * @returns {Promise<void>}
- */
 async function sendOrderConfirmation(opts) {
   const apiKey = process.env.RESEND_API_KEY;
 
   if (!apiKey) {
-    console.warn('    ⚠️  RESEND_API_KEY not set — skipping confirmation email.');
+    console.warn('RESEND_API_KEY not set — skipping confirmation email.');
     console.warn('       Sign up at https://resend.com, get an API key,');
     console.warn('       and add it to server/.env as RESEND_API_KEY=re_…');
     return;
   }
 
   if (!opts.customerEmail) {
-    console.warn('    ⚠️  No customer email on session — skipping confirmation email.');
+    console.warn('No customer email on session — skipping confirmation email.');
     return;
   }
 
   const resend = new Resend(apiKey);
   const isTest = process.env.STRIPE_SECRET_KEY?.includes('_test_') ?? true;
-  const html   = buildOrderEmailHtml({ ...opts, isTest });
+  const html = buildOrderEmailHtml({ ...opts, isTest });
 
   const subject = isTest
-    ? '[TEST] Your Air Jordan Store order is confirmed 🎉'
-    : 'Your Air Jordan Store order is confirmed 🎉';
+    ? '[TEST] Your Sneakers Store order is confirmed 🎉'
+    : 'Your Sneakers Store order is confirmed 🎉';
 
   const { data, error } = await resend.emails.send({
-    from:    FROM_ADDRESS,
-    to:      opts.customerEmail,
+    from: FROM_ADDRESS,
+    to: opts.customerEmail,
     subject,
     html,
   });
 
   if (error) {
     console.error('\n    =========================================');
-    console.error('    ❌ RESEND API ERROR DETECTED');
+    console.error('RESEND API ERROR DETECTED');
     console.error('    =========================================');
     console.error('    ' + JSON.stringify(error, null, 2).replace(/\n/g, '\n    '));
     console.error('    =========================================\n');
-    // Log the error but DO NOT throw — the caller handles this in a try/catch
+
     throw new Error(`Resend API error: ${error.message || JSON.stringify(error)}`);
   }
 
-  console.log(`    📧  Confirmation email sent → ${opts.customerEmail} (id: ${data?.id})`);
+  console.log(
+    `    📧  Confirmation email sent → ${opts.customerEmail} (id: ${data?.id})`
+  );
 }
 
-/**
- * Add an address to the Resend audience backing the newsletter.
- *
- * Follows the same contract as sendOrderConfirmation: if the integration is not
- * configured it warns and returns rather than throwing, so a signup is never
- * lost just because Resend is unset. The subscriber is already persisted in
- * SQLite by the time this runs — this call is what makes the list survive a
- * redeploy, since the DB file itself is ephemeral on Render.
- *
- * @param {string} email
- * @returns {Promise<{ added: boolean, reason?: string }>}
- */
 async function addNewsletterContact(email) {
-  const apiKey     = process.env.RESEND_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY;
   const audienceId = process.env.RESEND_AUDIENCE_ID;
 
   if (!apiKey) {
-    console.warn('    ⚠️  RESEND_API_KEY not set — subscriber saved locally only.');
+    console.warn('RESEND_API_KEY not set — subscriber saved locally only.');
     return { added: false, reason: 'no-api-key' };
   }
   if (!audienceId) {
-    console.warn('    ⚠️  RESEND_AUDIENCE_ID not set — subscriber saved locally only.');
+    console.warn('RESEND_AUDIENCE_ID not set — subscriber saved locally only.');
     console.warn('       Create an audience at https://resend.com/audiences and set');
     console.warn('       RESEND_AUDIENCE_ID in server/.env to sync the mailing list.');
     return { added: false, reason: 'no-audience' };

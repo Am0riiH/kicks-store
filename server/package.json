@@ -1,7 +1,7 @@
 {
-  "name": "air-jordan-store-server",
+  "name": "sneakers-store-server",
   "version": "1.0.0",
-  "description": "Minimal Express backend for Stripe Checkout session creation",
+  "description": "Express backend for the Sneakers Store: Stripe checkout, orders and admin API",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

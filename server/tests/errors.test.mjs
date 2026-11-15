@@ -1,19 +1,13 @@
-/**
- * The global error handler (index.js:743) and the 404 fallback.
- *
- * These paths exist because the admin UI parses every response as JSON. Before
- * the handler was added, a body-parser failure escaped to Express's default
- * handler and returned an HTML error page, which the frontend could not read —
- * the bug surfaced as an opaque "Failed to save product" alert.
- */
+// Global error handler and the 404 fallback: every response must be JSON.
 import { describe, it, expect, beforeAll, vi, afterEach } from 'vitest';
 import request from 'supertest';
 import { loadApp, adminHeader } from './helpers.mjs';
 
 let app;
+let db;
 
 beforeAll(async () => {
-  ({ app } = await loadApp());
+  ({ app, db } = await loadApp());
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -138,22 +132,18 @@ describe('CORS', () => {
 });
 
 describe('404 fallback', () => {
-  it.each([
-    '/api/does-not-exist',
-    '/not-an-api-path',
-    '/api/admin/no-such-route',
-  ])('404s with JSON for %s', async (path) => {
-    const res = await request(app).get(path).set('Authorization', adminHeader());
+  it.each(['/api/does-not-exist', '/not-an-api-path', '/api/admin/no-such-route'])(
+    '404s with JSON for %s',
+    async (path) => {
+      const res = await request(app).get(path).set('Authorization', adminHeader());
 
-    expect(res.status).toBe(404);
-    expect(res.headers['content-type']).toMatch(/application\/json/);
-    expect(res.body).toEqual({ error: 'Not found' });
-  });
+      expect(res.status).toBe(404);
+      expect(res.headers['content-type']).toMatch(/application\/json/);
+      expect(res.body).toEqual({ error: 'Not found' });
+    }
+  );
 
   it('checks auth before routing, so unknown admin paths 401 rather than 404', async () => {
-    // app.use('/api/admin/', …) also matches the bare '/api/admin'. Answering
-    // 401 instead of 404 is the right call: it keeps an unauthenticated caller
-    // from mapping which admin routes exist.
     for (const path of ['/api/admin', '/api/admin/no-such-route']) {
       const res = await request(app).get(path);
       expect(res.status).toBe(401);
@@ -169,8 +159,10 @@ describe('404 fallback', () => {
 
 describe('error responses never leak internals', () => {
   it('returns a generic message with no stack trace on an unexpected failure', async () => {
-    // PUT /api/admin/variants/:id has no try/catch, so a driver error reaches
-    // the global handler — the cleanest way to exercise the 500 branch.
+    vi.spyOn(db, 'updateVariant').mockImplementation(() => {
+      throw new Error('boom at server/db.js');
+    });
+
     const res = await request(app)
       .put('/api/admin/variants/1')
       .set('Authorization', adminHeader())
@@ -202,7 +194,7 @@ describe('security headers', () => {
 
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['x-dns-prefetch-control']).toBe('off');
-    // Explicitly relaxed so the frontend on another origin can read responses.
+
     expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
   });
 

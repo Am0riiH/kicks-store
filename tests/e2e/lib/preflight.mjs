@@ -1,10 +1,11 @@
-/**
- * Fails fast, with an actionable message, when the local stack is not ready.
- *
- * Without this an E2E run dies 30 seconds in on an opaque selector timeout, and
- * the real cause (a webhook forwarder that was never started) stays hidden.
- */
-import { FRONTEND_URL, API_URL, ADMIN_USER, ADMIN_PASSWORD, adminHeader, log } from './env.mjs';
+import {
+  FRONTEND_URL,
+  API_URL,
+  ADMIN_USER,
+  ADMIN_PASSWORD,
+  adminHeader,
+  log,
+} from './env.mjs';
 
 class PreflightError extends Error {}
 
@@ -18,11 +19,6 @@ async function check(label, fn) {
   }
 }
 
-/**
- * @param {object} opts
- * @param {boolean} opts.needsFrontend  browser flows need Vite running
- * @param {boolean} opts.needsWebhook   flows that wait for an order need `stripe listen`
- */
 export async function preflight({ needsFrontend = true, needsWebhook = true } = {}) {
   log.step('Preflight');
   const failures = [];
@@ -57,8 +53,8 @@ export async function preflight({ needsFrontend = true, needsWebhook = true } = 
         }
       },
       'Run:  stripe listen --forward-to localhost:3001/api/webhook\n' +
-      '       then copy the printed whsec_… into server/.env and restart the API.\n' +
-      '       Without it the webhook is acknowledged but no order is ever stored.'
+        '       then copy the printed whsec_… into server/.env and restart the API.\n' +
+        '       Without it the webhook is acknowledged but no order is ever stored.'
     );
   }
 
@@ -84,12 +80,14 @@ export async function preflight({ needsFrontend = true, needsWebhook = true } = 
       });
       if (res.status === 401) throw new Error('credentials rejected (401)');
       if (res.status === 429) {
-        throw new Error('rate limited (429) — 5 failed logins per 15 minutes; wait it out');
+        throw new Error(
+          'rate limited (429) — 5 failed logins per 15 minutes; wait it out'
+        );
       }
       if (!res.ok) throw new Error(`returned ${res.status}`);
     },
     'Set the admin credentials from server/.env:\n' +
-    '       $env:E2E_ADMIN_USER="…"; $env:E2E_ADMIN_PASSWORD="…"'
+      '       $env:E2E_ADMIN_USER="…"; $env:E2E_ADMIN_PASSWORD="…"'
   );
 
   if (failures.length) {

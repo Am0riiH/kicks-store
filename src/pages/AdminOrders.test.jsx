@@ -4,12 +4,6 @@ import userEvent from '@testing-library/user-event';
 import AdminOrders from './AdminOrders.jsx';
 import { renderWithProviders, mockFetch, jsonResponse, API } from '../test/utils.jsx';
 
-/**
- * Auth is HTTP Basic held in sessionStorage under 'adminAuth' — there is no
- * token and no auth context. Both branches (login form vs dashboard) are chosen
- * by a lazy useState initialiser, so the key must be seeded BEFORE render.
- */
-
 const ORDERS = 'GET /api/admin/orders';
 const AUTH = `Basic ${btoa('admin:secret')}`;
 
@@ -36,11 +30,6 @@ const signedIn = () => sessionStorage.setItem('adminAuth', AUTH);
 
 const renderPage = () => renderWithProviders(<AdminOrders />, { cart: false });
 
-/**
- * The status FILTER buttons are labelled 'all' / 'pending' / 'completed' /
- * 'rejected' — exactly the same words as the status BADGES in each row. Queries
- * for a status must be scoped to the table or they match both.
- */
 const inTable = () => within(screen.getByRole('table'));
 
 beforeEach(() => {
@@ -87,7 +76,9 @@ describe('login form', () => {
 
   it('reports invalid credentials on a 401 and stores nothing', async () => {
     const user = userEvent.setup();
-    mockFetch({ [ORDERS]: jsonResponse({ error: 'Authentication required.' }, { status: 401 }) });
+    mockFetch({
+      [ORDERS]: jsonResponse({ error: 'Authentication required.' }, { status: 401 }),
+    });
     const { container } = renderPage();
 
     await user.type(container.querySelector('input[type="text"]'), 'admin');
@@ -128,11 +119,6 @@ describe('session restore', () => {
 
     renderPage();
 
-    // `loading` is seeded from sessionStorage rather than flipped on inside the
-    // mount effect. Setting it in the effect meant the first render painted the
-    // dashboard with zero orders — a flash of "No orders found" on every reload
-    // — before a second render corrected it. Asserted synchronously, with no
-    // waiting, so it fails if that regresses.
     expect(screen.getByText(/loading orders/i)).toBeInTheDocument();
     expect(screen.queryByText('No orders found')).not.toBeInTheDocument();
   });
@@ -143,8 +129,9 @@ describe('session restore', () => {
 
     renderPage();
 
-    // Dropped back to the login form, with the stale key cleared.
-    expect(await screen.findByRole('heading', { name: 'Admin Login' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Admin Login' })
+    ).toBeInTheDocument();
     expect(sessionStorage.getItem('adminAuth')).toBeNull();
   });
 
@@ -177,7 +164,7 @@ describe('order table', () => {
     expect(screen.getByText('ada@example.com')).toBeInTheDocument();
     expect(screen.getByText('Chicago')).toBeInTheDocument();
     expect(screen.getByText('× 1')).toBeInTheDocument();
-    // amount_total is in cents.
+
     expect(screen.getByText('$180.00 USD')).toBeInTheDocument();
     expect(inTable().getByText('pending')).toBeInTheDocument();
   });
@@ -259,7 +246,11 @@ describe('row expansion', () => {
       [ORDERS]: jsonResponse({
         orders: [
           makeOrder({ id: 'cs_1', customer_email: 'one@example.com' }),
-          makeOrder({ id: 'cs_2', customer_email: 'two@example.com', shipping_line1: '2 Other Road' }),
+          makeOrder({
+            id: 'cs_2',
+            customer_email: 'two@example.com',
+            shipping_line1: '2 Other Road',
+          }),
         ],
       }),
     });
@@ -276,10 +267,11 @@ describe('row expansion', () => {
 describe('status changes', () => {
   beforeEach(signedIn);
 
-  const withOrder = (over = {}) => mockFetch({
-    [ORDERS]: jsonResponse({ orders: [makeOrder(over)] }),
-    'PATCH /api/admin/orders/cs_test_abc123/status': jsonResponse({ success: true }),
-  });
+  const withOrder = (over = {}) =>
+    mockFetch({
+      [ORDERS]: jsonResponse({ orders: [makeOrder(over)] }),
+      'PATCH /api/admin/orders/cs_test_abc123/status': jsonResponse({ success: true }),
+    });
 
   it('PATCHes the new status with the auth header', async () => {
     const user = userEvent.setup();
@@ -312,23 +304,32 @@ describe('status changes', () => {
     const user = userEvent.setup();
     mockFetch({
       [ORDERS]: jsonResponse({ orders: [makeOrder()] }),
-      'PATCH /api/admin/orders/cs_test_abc123/status': jsonResponse({ error: 'nope' }, { status: 500 }),
+      'PATCH /api/admin/orders/cs_test_abc123/status': jsonResponse(
+        { error: 'nope' },
+        { status: 500 }
+      ),
     });
     renderPage();
 
     await screen.findByText('Ada Lovelace');
     await user.click(screen.getByRole('button', { name: 'Complete' }));
 
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith(
-      'Error updating status: Failed to update status'
-    ));
-    // Optimistic update rolled back.
+    await waitFor(() =>
+      expect(window.alert).toHaveBeenCalledWith(
+        'Error updating status: Failed to update status'
+      )
+    );
+
     expect(inTable().getByText('pending')).toBeInTheDocument();
     expect(inTable().queryByText('completed')).not.toBeInTheDocument();
   });
 
   it('hides the action matching the current status', async () => {
-    mockFetch({ [ORDERS]: jsonResponse({ orders: [makeOrder({ fulfillment_status: 'completed' })] }) });
+    mockFetch({
+      [ORDERS]: jsonResponse({
+        orders: [makeOrder({ fulfillment_status: 'completed' })],
+      }),
+    });
     renderPage();
 
     await screen.findByText('Ada Lovelace');
@@ -352,17 +353,24 @@ describe('status changes', () => {
 describe('search and filters', () => {
   beforeEach(signedIn);
 
-  const twoOrders = () => mockFetch({
-    [ORDERS]: jsonResponse({
-      orders: [
-        makeOrder({ id: 'cs_ada', customer_name: 'Ada Lovelace', customer_email: 'ada@example.com' }),
-        makeOrder({
-          id: 'cs_grace', customer_name: 'Grace Hopper',
-          customer_email: 'grace@example.com', fulfillment_status: 'completed',
-        }),
-      ],
-    }),
-  });
+  const twoOrders = () =>
+    mockFetch({
+      [ORDERS]: jsonResponse({
+        orders: [
+          makeOrder({
+            id: 'cs_ada',
+            customer_name: 'Ada Lovelace',
+            customer_email: 'ada@example.com',
+          }),
+          makeOrder({
+            id: 'cs_grace',
+            customer_name: 'Grace Hopper',
+            customer_email: 'grace@example.com',
+            fulfillment_status: 'completed',
+          }),
+        ],
+      }),
+    });
 
   const searchBox = () => screen.getByPlaceholderText('Search name, email, or ID...');
 

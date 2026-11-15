@@ -5,15 +5,8 @@ import ProductCard from './ProductCard.jsx';
 import { thumbUrl } from '../lib/imageUrl.js';
 import { API_BASE } from '../lib/api.js';
 
-/* Module scope so the reference is stable. Declared inside Navbar it was a new
-   array every render, which is why the useCallback below listed it as a missing
-   dependency — adding it there would have rebuilt the callback on every render
-   and defeated the memo. It is a constant; it belongs out here. */
 const VOLT_COLORS = ['#d7ff3e', '#ffffff', '#ff3e6c', '#3effcd', '#ffe03e'];
 
-/* ---------------------------------------------------------
-   Small inline icon set (no external icon lib needed)
---------------------------------------------------------- */
 function SearchIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
@@ -46,16 +39,14 @@ function MenuIcon(props) {
   );
 }
 
-/* ---------------------------------------------------------
-   Mobile full-screen nav drawer
---------------------------------------------------------- */
 function MobileNavDrawer({ isOpen, onClose }) {
   const { setCartOpen, setSearchOpen } = useCart();
 
-  // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
@@ -63,9 +54,9 @@ function MobileNavDrawer({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   const NAV_LINKS = [
-    { to: '/store',      label: 'Store'      },
+    { to: '/store', label: 'Store' },
     { to: '/categories', label: 'Categories' },
-    { to: '/about',      label: 'About'      },
+    { to: '/about', label: 'About' },
   ];
 
   return (
@@ -75,7 +66,6 @@ function MobileNavDrawer({ isOpen, onClose }) {
       aria-modal="true"
       aria-label="Mobile navigation"
     >
-      {/* Top bar mirrors the real header */}
       <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
         <span className="font-display text-3xl uppercase tracking-wide text-bone">
           NIKE<span className="text-volt">.</span>
@@ -89,7 +79,6 @@ function MobileNavDrawer({ isOpen, onClose }) {
         </button>
       </div>
 
-      {/* Primary nav links */}
       <nav className="flex flex-1 flex-col px-6 pt-8 gap-1">
         {NAV_LINKS.map(({ to, label }) => (
           <Link
@@ -103,17 +92,22 @@ function MobileNavDrawer({ isOpen, onClose }) {
         ))}
       </nav>
 
-      {/* Bottom action row: Search + Cart */}
       <div className="flex items-center gap-3 border-t border-white/10 px-6 py-6">
         <button
-          onClick={() => { setSearchOpen(true); onClose(); }}
+          onClick={() => {
+            setSearchOpen(true);
+            onClose();
+          }}
           className="flex items-center gap-2 rounded-full border border-white/20 px-5 py-3 font-mono text-xs uppercase tracking-widest text-bone hover:bg-white/10 transition min-h-[44px]"
         >
           <SearchIcon className="h-4 w-4" />
           Search
         </button>
         <button
-          onClick={() => { setCartOpen(true); onClose(); }}
+          onClick={() => {
+            setCartOpen(true);
+            onClose();
+          }}
           className="flex items-center gap-2 rounded-full border border-white/20 px-5 py-3 font-mono text-xs uppercase tracking-widest text-bone hover:bg-white/10 transition min-h-[44px]"
         >
           <CartIcon className="h-4 w-4" />
@@ -124,10 +118,6 @@ function MobileNavDrawer({ isOpen, onClose }) {
   );
 }
 
-/* ---------------------------------------------------------
-   Payment mark placeholders — clean geometric SVGs, no
-   trademarked artwork, just recognizable shapes + wordmarks
---------------------------------------------------------- */
 function PaymentIcons() {
   const marks = [
     { label: 'Visa', bg: '#1A1F71' },
@@ -157,9 +147,6 @@ function PaymentIcons() {
   );
 }
 
-/* ---------------------------------------------------------
-   Fullscreen Search Modal
---------------------------------------------------------- */
 function SearchModal() {
   const { isSearchOpen, setSearchOpen } = useCart();
   const [query, setQuery] = useState('');
@@ -170,19 +157,18 @@ function SearchModal() {
     if (isSearchOpen && products.length === 0) {
       setLoading(true);
       fetch(`${API_BASE}/api/products`)
-        .then(res => res.json())
-        .then(data => {
+        .then((res) => res.json())
+        .then((data) => {
           setProducts(data.products || []);
           setLoading(false);
         })
-        .catch(err => {
+        .catch((err) => {
           console.error('Failed to fetch products for search', err);
           setLoading(false);
         });
     }
   }, [isSearchOpen, products.length]);
 
-  // Fix 3a: Escape key closes the search modal
   useEffect(() => {
     if (!isSearchOpen) return;
     const handleEscape = (e) => {
@@ -216,7 +202,9 @@ function SearchModal() {
       aria-label="Search"
     >
       <div className="flex items-center justify-between border-b border-white/10 px-6 py-5 sm:px-12">
-        <span className="font-display text-lg uppercase tracking-wide text-smoke">Search the drop</span>
+        <span className="font-display text-lg uppercase tracking-wide text-smoke">
+          Search the drop
+        </span>
         <button
           onClick={() => {
             setSearchOpen(false);
@@ -243,7 +231,9 @@ function SearchModal() {
       <div className="flex-1 overflow-y-auto px-6 py-10 sm:px-12">
         {query.trim() === '' && (
           <p className="font-mono text-sm uppercase tracking-widest text-smoke">
-            {loading ? 'Loading catalog...' : 'Start typing to filter the catalog in real time.'}
+            {loading
+              ? 'Loading catalog...'
+              : 'Start typing to filter the catalog in real time.'}
           </p>
         )}
         {query.trim() !== '' && results.length === 0 && !loading && (
@@ -261,12 +251,9 @@ function SearchModal() {
   );
 }
 
-/* ---------------------------------------------------------
-   Checkout button — calls the Express backend, redirects to Stripe
---------------------------------------------------------- */
 function CheckoutButton({ items }) {
-  const [loading, setLoading]     = useState(false);
-  const [error,   setError]       = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleCheckout = async () => {
     if (items.length === 0) return;
@@ -276,16 +263,18 @@ function CheckoutButton({ items }) {
 
     try {
       const response = await fetch(`${API_BASE}/api/create-checkout-session`, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: items.map((item) => ({
-            name:       item.name,
-            price:      item.price,
-            quantity:   item.qty,
-            variant_id: item.variant_id, // Ensure variant_id is passed to backend!
+            name: item.name,
+            price: item.price,
+            quantity: item.qty,
+            variant_id: item.variant_id,
             // Only pass image if it starts with http (Stripe requires absolute URLs)
-            ...(item.image && /^https?:\/\//.test(item.image) ? { image: item.image } : {}),
+            ...(item.image && /^https?:\/\//.test(item.image)
+              ? { image: item.image }
+              : {}),
           })),
         }),
       });
@@ -300,13 +289,12 @@ function CheckoutButton({ items }) {
         throw new Error('No checkout URL returned from server.');
       }
 
-      // Hand off to Stripe's hosted checkout page
       window.location.href = data.url;
     } catch (err) {
       console.error('Checkout error:', err);
       setError(
         err.message === 'Failed to fetch'
-          ? 'Cannot reach the checkout server. Make sure it\'s running on port 3001.'
+          ? "Cannot reach the checkout server. Make sure it's running on port 3001."
           : err.message || 'Something went wrong. Please try again.'
       );
     } finally {
@@ -328,7 +316,6 @@ function CheckoutButton({ items }) {
       >
         {loading ? (
           <>
-            {/* Spinner SVG — no external dependency */}
             <svg
               className="h-4 w-4 animate-spin"
               viewBox="0 0 24 24"
@@ -359,14 +346,19 @@ function CheckoutButton({ items }) {
   );
 }
 
-/* ---------------------------------------------------------
-   Invoice-style Cart Drawer
---------------------------------------------------------- */
 function CartDrawer() {
-  const { items, isCartOpen, setCartOpen, removeItem, updateQty, subtotal, tax, total, TAX_RATE } =
-    useCart();
+  const {
+    items,
+    isCartOpen,
+    setCartOpen,
+    removeItem,
+    updateQty,
+    subtotal,
+    tax,
+    total,
+    TAX_RATE,
+  } = useCart();
 
-  // Fix 3b: Escape key closes the cart drawer
   useEffect(() => {
     if (!isCartOpen) return;
     const handleEscape = (e) => {
@@ -376,11 +368,6 @@ function CartDrawer() {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isCartOpen, setCartOpen]);
 
-  /* Decorative receipt header. Computed once rather than inline in the JSX:
-     Math.random() and new Date() are impure, so rendering them directly gave a
-     different "receipt number" on every re-render — adding an item silently
-     renumbered the receipt the customer was looking at. Neither value is used
-     for anything real; the actual order id comes from Stripe after checkout. */
   const [receipt] = useState(() => ({
     date: new Date().toLocaleDateString('en-US', {
       year: 'numeric',
@@ -392,24 +379,24 @@ function CartDrawer() {
 
   return (
     <>
-      {/* backdrop */}
       <div
         onClick={() => setCartOpen(false)}
-        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 ${isCartOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-          }`}
+        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 ${
+          isCartOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        }`}
       />
 
-      {/* drawer */}
       <aside
         className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col
           bg-bone text-ink shadow-2xl transition-transform duration-500 ease-out
           ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        {/* receipt header */}
         <div className="border-b-2 border-dashed border-ink/20 px-8 pb-6 pt-8">
           <div className="flex items-start justify-between">
             <div>
-              <p className="font-display text-2xl uppercase tracking-tight">Order Receipt</p>
+              <p className="font-display text-2xl uppercase tracking-tight">
+                Order Receipt
+              </p>
               <p className="font-mono text-xs text-ink/70">
                 {receipt.date} · #{receipt.number}
               </p>
@@ -424,14 +411,18 @@ function CartDrawer() {
           </div>
         </div>
 
-        {/* line items */}
         <div className="flex-1 overflow-y-auto px-8 py-6">
           {items.length === 0 ? (
-            <p className="font-mono text-sm text-ink/70">Your cart is empty. Go start a drop.</p>
+            <p className="font-mono text-sm text-ink/70">
+              Your cart is empty. Go start a drop.
+            </p>
           ) : (
             <ul className="flex flex-col gap-5">
               {items.map((item) => (
-                <li key={item.variant_id || item.id} className="flex gap-4 border-b border-ink/10 pb-5">
+                <li
+                  key={item.variant_id || item.id}
+                  className="flex gap-4 border-b border-ink/10 pb-5"
+                >
                   <img
                     src={thumbUrl(item.image, 80)}
                     alt={item.name}
@@ -439,7 +430,9 @@ function CartDrawer() {
                   />
                   <div className="flex flex-1 flex-col">
                     <div className="flex items-start justify-between">
-                      <p className="font-display text-sm uppercase leading-tight">{item.name}</p>
+                      <p className="font-display text-sm uppercase leading-tight">
+                        {item.name}
+                      </p>
                       <button
                         onClick={() => removeItem(item.variant_id)}
                         className="font-mono text-[11px] uppercase text-ink/70 hover:text-ink"
@@ -460,7 +453,13 @@ function CartDrawer() {
                         >
                           −
                         </button>
-                        <span className="font-mono text-xs" aria-live="polite" aria-label={`Quantity: ${item.qty}`}>{item.qty}</span>
+                        <span
+                          className="font-mono text-xs"
+                          aria-live="polite"
+                          aria-label={`Quantity: ${item.qty}`}
+                        >
+                          {item.qty}
+                        </span>
                         <button
                           onClick={() => updateQty(item.variant_id, item.qty + 1)}
                           className="h-6 w-6 rounded-full border border-ink/20 font-mono text-xs"
@@ -480,7 +479,6 @@ function CartDrawer() {
           )}
         </div>
 
-        {/* invoice totals */}
         <div className="border-t-2 border-dashed border-ink/20 px-8 py-6">
           <div className="flex flex-col gap-2 font-mono text-sm">
             <div className="flex justify-between text-ink/60">
@@ -508,67 +506,64 @@ function CartDrawer() {
   );
 }
 
-/* ---------------------------------------------------------
-   Navbar
---------------------------------------------------------- */
 export default function Navbar() {
   const navigate = useNavigate();
   const { count, setCartOpen, isSearchOpen, setSearchOpen } = useCart();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // ── Feature 3: Logo Easter Egg ──────────────────────────────────────────
-  // Track rapid clicks: 5 within 1.5s triggers the animation.
   const eggClicksRef = useRef(0);
-  const eggTimerRef  = useRef(null);
+  const eggTimerRef = useRef(null);
 
   const fireParticles = useCallback((anchorEl) => {
     const rect = anchorEl.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
-    const cy = rect.top  + rect.height / 2;
+    const cy = rect.top + rect.height / 2;
     const count = 18;
 
     for (let i = 0; i < count; i++) {
       const angle = (2 * Math.PI * i) / count + Math.random() * 0.4;
-      const dist  = 55 + Math.random() * 55;
-      const tx    = Math.cos(angle) * dist;
-      const ty    = Math.sin(angle) * dist - 20;
+      const dist = 55 + Math.random() * 55;
+      const tx = Math.cos(angle) * dist;
+      const ty = Math.sin(angle) * dist - 20;
       const color = VOLT_COLORS[Math.floor(Math.random() * VOLT_COLORS.length)];
 
       const p = document.createElement('div');
       p.className = 'easter-particle';
-      p.style.left    = `${cx - 4}px`;
-      p.style.top     = `${cy - 4}px`;
+      p.style.left = `${cx - 4}px`;
+      p.style.top = `${cy - 4}px`;
       p.style.background = color;
       p.style.setProperty('--tx', `${tx}px`);
       p.style.setProperty('--ty', `${ty}px`);
       document.body.appendChild(p);
-      // Remove after animation ends
+
       p.addEventListener('animationend', () => p.remove(), { once: true });
     }
   }, []);
 
   const handleLogoEasterEgg = useCallback(() => {
-    // Always reset the debounce timer
     clearTimeout(eggTimerRef.current);
     eggClicksRef.current += 1;
 
     if (eggClicksRef.current >= 5) {
       eggClicksRef.current = 0;
-      // Animate the logo span
+
       const logoSpan = document.getElementById('logo-text');
       if (logoSpan) {
         logoSpan.classList.remove('logo-easter-egg');
         // Force reflow so re-adding the class re-triggers the animation
         void logoSpan.offsetWidth;
         logoSpan.classList.add('logo-easter-egg');
-        logoSpan.addEventListener('animationend', () => {
-          logoSpan.classList.remove('logo-easter-egg');
-        }, { once: true });
-        // Fire particle burst from the logo element
+        logoSpan.addEventListener(
+          'animationend',
+          () => {
+            logoSpan.classList.remove('logo-easter-egg');
+          },
+          { once: true }
+        );
+
         fireParticles(logoSpan);
       }
     } else {
-      // Reset counter if user stops clicking for 1.5 s
       eggTimerRef.current = setTimeout(() => {
         eggClicksRef.current = 0;
       }, 1500);
@@ -578,13 +573,10 @@ export default function Navbar() {
   const handleLogoClick = (e) => {
     e.preventDefault();
     navigate('/');
-    // Tell Home.jsx to strictly re-run Phase 0 (the 360 drop) even if
-    // we're already on "/". CustomEvent works whether or not the route
-    // actually changes, since react-router won't remount on same path.
+
     window.dispatchEvent(new CustomEvent('replay-intro'));
   };
 
-  // Combined logo click: navigation first, then easter egg check
   const onLogoClick = (e) => {
     handleLogoClick(e);
     handleLogoEasterEgg(e);
@@ -593,8 +585,14 @@ export default function Navbar() {
   return (
     <>
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-ink/70 px-6 py-4 backdrop-blur-md sm:px-10">
-        <a href="/" onClick={onLogoClick} className="font-display text-3xl uppercase tracking-wide text-bone">
-          <span id="logo-text">NIKE<span className="text-volt">.</span></span>
+        <a
+          href="/"
+          onClick={onLogoClick}
+          className="font-display text-3xl uppercase tracking-wide text-bone"
+        >
+          <span id="logo-text">
+            NIKE<span className="text-volt">.</span>
+          </span>
         </a>
 
         <nav className="hidden gap-8 font-mono text-xs uppercase tracking-widest text-smoke sm:flex">
@@ -629,7 +627,7 @@ export default function Navbar() {
               </span>
             )}
           </button>
-          {/* Hamburger — only visible below sm breakpoint */}
+
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="sm:hidden rounded-full p-2.5 text-bone transition hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -643,7 +641,10 @@ export default function Navbar() {
 
       <SearchModal />
       <CartDrawer />
-      <MobileNavDrawer isOpen={isMobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      <MobileNavDrawer
+        isOpen={isMobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
     </>
   );
 }

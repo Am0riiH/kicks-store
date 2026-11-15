@@ -6,24 +6,23 @@ import { API_BASE } from '../lib/api.js';
 
 export default function Store() {
   const [searchParams] = useSearchParams();
-  // ?tag=New / ?tag=Limited — the footer's "New drops" and "Limited" links.
-  // Matched case-insensitively; an unknown or absent tag falls back to the
-  // full catalog, so a bad URL degrades to the default view rather than an
-  // empty page.
+
   const activeTag = (searchParams.get('tag') || '').trim();
 
-  useDocumentTitle(activeTag ? `${activeTag} | Drop Site` : 'Shop All Sneakers | Drop Site');
+  useDocumentTitle(
+    activeTag ? `${activeTag} | Drop Site` : 'Shop All Sneakers | Drop Site'
+  );
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/products`)
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setProducts(data.products || []);
         setLoading(false);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error('Error fetching products:', err);
         setLoading(false);
       });
@@ -43,8 +42,8 @@ export default function Store() {
           {activeTag || 'The Store'}
         </h1>
         <p className="max-w-xl text-smoke">
-          Every silhouette currently in rotation. New drops land weekly — check back or turn on
-          restock alerts.
+          Every silhouette currently in rotation. New drops land weekly — check back or
+          turn on restock alerts.
         </p>
         {activeTag && (
           <Link
@@ -57,20 +56,18 @@ export default function Store() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {loading ? (
-          // Skeleton loaders
-          Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="animate-pulse flex flex-col gap-4 border border-white/10 bg-white/5 p-6 rounded-xl h-[400px]">
-              <div className="bg-white/10 h-48 w-full rounded-xl"></div>
-              <div className="bg-white/10 h-6 w-3/4 rounded mt-4"></div>
-              <div className="bg-white/10 h-4 w-1/2 rounded"></div>
-            </div>
-          ))
-        ) : (
-          visibleProducts.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))
-        )}
+        {loading
+          ? Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse flex flex-col gap-4 border border-white/10 bg-white/5 p-6 rounded-xl h-[400px]"
+              >
+                <div className="bg-white/10 h-48 w-full rounded-xl"></div>
+                <div className="bg-white/10 h-6 w-3/4 rounded mt-4"></div>
+                <div className="bg-white/10 h-4 w-1/2 rounded"></div>
+              </div>
+            ))
+          : visibleProducts.map((p) => <ProductCard key={p.id} product={p} />)}
       </div>
 
       {!loading && visibleProducts.length === 0 && (

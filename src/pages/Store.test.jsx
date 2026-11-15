@@ -13,12 +13,13 @@ const makeProduct = (over = {}) => ({
   image: 'https://example.com/chicago.png',
   colorway: 'Black/Red',
   tag: null,
-  variants: [{ id: 1, product_id: 'sk1-chicago', size: '10', color: 'Black/Red', quantity: 5 }],
+  variants: [
+    { id: 1, product_id: 'sk1-chicago', size: '10', color: 'Black/Red', quantity: 5 },
+  ],
   ...over,
 });
 
-const renderStore = (route = '/store') =>
-  renderWithProviders(<Store />, { route });
+const renderStore = (route = '/store') => renderWithProviders(<Store />, { route });
 
 describe('loading', () => {
   it('shows six skeletons until the fetch resolves', () => {
@@ -29,11 +30,13 @@ describe('loading', () => {
   });
 
   it('requests the catalogue once', async () => {
-    const fetchMock = mockFetch({ [PRODUCTS]: jsonResponse({ products: [makeProduct()] }) });
+    const fetchMock = mockFetch({
+      [PRODUCTS]: jsonResponse({ products: [makeProduct()] }),
+    });
     renderStore();
 
     await screen.findByText('Chicago');
-    // M5: one call for the whole page, not one per card.
+
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(`${API}/api/products`);
   });
@@ -83,22 +86,25 @@ describe('catalogue', () => {
     mockFetch({ [PRODUCTS]: () => Promise.reject(new Error('offline')) });
     const { container } = renderStore();
 
-    await waitFor(() => expect(container.querySelectorAll('.animate-pulse')).toHaveLength(0));
+    await waitFor(() =>
+      expect(container.querySelectorAll('.animate-pulse')).toHaveLength(0)
+    );
     expect(screen.getByText('No products yet.')).toBeInTheDocument();
     expect(spy).toHaveBeenCalled();
   });
 });
 
 describe('?tag= filtering', () => {
-  const tagged = () => mockFetch({
-    [PRODUCTS]: jsonResponse({
-      products: [
-        makeProduct({ id: 'a', name: 'Fresh One', tag: 'New' }),
-        makeProduct({ id: 'b', name: 'Rare One', tag: 'Limited' }),
-        makeProduct({ id: 'c', name: 'Plain One', tag: null }),
-      ],
-    }),
-  });
+  const tagged = () =>
+    mockFetch({
+      [PRODUCTS]: jsonResponse({
+        products: [
+          makeProduct({ id: 'a', name: 'Fresh One', tag: 'New' }),
+          makeProduct({ id: 'b', name: 'Rare One', tag: 'Limited' }),
+          makeProduct({ id: 'c', name: 'Plain One', tag: null }),
+        ],
+      }),
+    });
 
   it('shows only products carrying the tag', async () => {
     tagged();
@@ -122,21 +128,25 @@ describe('?tag= filtering', () => {
 
     await screen.findByText('Fresh One');
     expect(screen.getByRole('heading', { name: 'New' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /clear filter/i })).toHaveAttribute('href', '/store');
+    expect(screen.getByRole('link', { name: /clear filter/i })).toHaveAttribute(
+      'href',
+      '/store'
+    );
   });
 
   it('says so when nothing carries the tag', async () => {
     tagged();
     renderStore('/store?tag=Exclusive');
 
-    expect(await screen.findByText('Nothing tagged “Exclusive” right now.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Nothing tagged “Exclusive” right now.')
+    ).toBeInTheDocument();
   });
 
   it('falls back to the full catalogue for a blank tag', async () => {
     tagged();
     renderStore('/store?tag=%20%20');
 
-    // A bad URL degrades to the default view rather than an empty page.
     expect(await screen.findByText('Fresh One')).toBeInTheDocument();
     expect(screen.getByText('Rare One')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'The Store' })).toBeInTheDocument();

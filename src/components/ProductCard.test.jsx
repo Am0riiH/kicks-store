@@ -6,17 +6,13 @@ import ProductCard from './ProductCard.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { renderWithProviders } from '../test/utils.jsx';
 
-/**
- * ProductCard is rendered inside a clickable card, so every inner control has
- * to stopPropagation or picking a size would navigate away instead. That
- * interaction is the main thing worth locking down here.
- *
- * Passing `variants` on the product means useProductVariants uses them
- * directly and never fetches — matching how /store renders after M5.
- */
-
 const makeVariant = (over = {}) => ({
-  id: 1, product_id: 'sk1-chicago', size: '10', color: 'Black/Red', quantity: 5, ...over,
+  id: 1,
+  product_id: 'sk1-chicago',
+  size: '10',
+  color: 'Black/Red',
+  quantity: 5,
+  ...over,
 });
 
 const makeProduct = (over = {}) => ({
@@ -31,7 +27,6 @@ const makeProduct = (over = {}) => ({
   ...over,
 });
 
-/** Surfaces cart state so assertions can inspect what was added. */
 function CartProbe() {
   const { items, isCartOpen } = useCart();
   return (
@@ -84,10 +79,12 @@ describe('rendering', () => {
   });
 
   it('hides the tag badge when the product is sold out', () => {
-    renderCard(makeProduct({
-      tag: 'NEW DROP',
-      variants: [makeVariant({ quantity: 0 })],
-    }));
+    renderCard(
+      makeProduct({
+        tag: 'NEW DROP',
+        variants: [makeVariant({ quantity: 0 })],
+      })
+    );
 
     expect(screen.queryByText('NEW DROP')).not.toBeInTheDocument();
   });
@@ -100,25 +97,29 @@ describe('rendering', () => {
   });
 
   it('renders colour buttons when there is more than one colour', () => {
-    renderCard(makeProduct({
-      variants: [
-        makeVariant({ id: 1, color: 'Black/Red' }),
-        makeVariant({ id: 2, color: 'White/Blue' }),
-      ],
-    }));
+    renderCard(
+      makeProduct({
+        variants: [
+          makeVariant({ id: 1, color: 'Black/Red' }),
+          makeVariant({ id: 2, color: 'White/Blue' }),
+        ],
+      })
+    );
 
     expect(screen.getByRole('button', { name: 'Black/Red' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'White/Blue' })).toBeInTheDocument();
   });
 
   it('renders a size button per variant of the selected colour', () => {
-    renderCard(makeProduct({
-      variants: [
-        makeVariant({ id: 1, size: '9' }),
-        makeVariant({ id: 2, size: '10' }),
-        makeVariant({ id: 3, size: '11' }),
-      ],
-    }));
+    renderCard(
+      makeProduct({
+        variants: [
+          makeVariant({ id: 1, size: '9' }),
+          makeVariant({ id: 2, size: '10' }),
+          makeVariant({ id: 3, size: '11' }),
+        ],
+      })
+    );
 
     expect(screen.getByRole('button', { name: '9' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '10' })).toBeInTheDocument();
@@ -126,12 +127,14 @@ describe('rendering', () => {
   });
 
   it('disables sizes that are out of stock', () => {
-    renderCard(makeProduct({
-      variants: [
-        makeVariant({ id: 1, size: '9', quantity: 3 }),
-        makeVariant({ id: 2, size: '10', quantity: 0 }),
-      ],
-    }));
+    renderCard(
+      makeProduct({
+        variants: [
+          makeVariant({ id: 1, size: '9', quantity: 3 }),
+          makeVariant({ id: 2, size: '10', quantity: 0 }),
+        ],
+      })
+    );
 
     expect(screen.getByRole('button', { name: '9' })).toBeEnabled();
 
@@ -142,14 +145,17 @@ describe('rendering', () => {
 });
 
 describe('sold-out state', () => {
-  const soldOut = () => makeProduct({
-    variants: [makeVariant({ id: 1, quantity: 0 }), makeVariant({ id: 2, size: '11', quantity: 0 })],
-  });
+  const soldOut = () =>
+    makeProduct({
+      variants: [
+        makeVariant({ id: 1, quantity: 0 }),
+        makeVariant({ id: 2, size: '11', quantity: 0 }),
+      ],
+    });
 
   it('shows the Sold Out overlay and disables the CTA', () => {
     renderCard(soldOut());
 
-    // Overlay text plus the button label.
     expect(screen.getAllByText('Sold Out').length).toBeGreaterThanOrEqual(1);
 
     const cta = screen.getByRole('button', { name: 'Sold Out' });
@@ -166,12 +172,14 @@ describe('sold-out state', () => {
   });
 
   it('is not sold out when at least one variant has stock', () => {
-    renderCard(makeProduct({
-      variants: [
-        makeVariant({ id: 1, size: '9', quantity: 0 }),
-        makeVariant({ id: 2, size: '10', quantity: 2 }),
-      ],
-    }));
+    renderCard(
+      makeProduct({
+        variants: [
+          makeVariant({ id: 1, size: '9', quantity: 0 }),
+          makeVariant({ id: 2, size: '10', quantity: 2 }),
+        ],
+      })
+    );
 
     expect(screen.getByRole('button', { name: 'Buy Now' })).toBeEnabled();
   });
@@ -204,9 +212,11 @@ describe('navigation', () => {
 
   it('does NOT navigate when a size button is clicked', async () => {
     const user = userEvent.setup();
-    renderCard(makeProduct({
-      variants: [makeVariant({ id: 1, size: '9' }), makeVariant({ id: 2, size: '10' })],
-    }));
+    renderCard(
+      makeProduct({
+        variants: [makeVariant({ id: 1, size: '9' }), makeVariant({ id: 2, size: '10' })],
+      })
+    );
 
     await user.click(screen.getByRole('button', { name: '10' }));
 
@@ -215,12 +225,14 @@ describe('navigation', () => {
 
   it('does NOT navigate when a colour button is clicked', async () => {
     const user = userEvent.setup();
-    renderCard(makeProduct({
-      variants: [
-        makeVariant({ id: 1, color: 'Black/Red' }),
-        makeVariant({ id: 2, color: 'White/Blue' }),
-      ],
-    }));
+    renderCard(
+      makeProduct({
+        variants: [
+          makeVariant({ id: 1, color: 'Black/Red' }),
+          makeVariant({ id: 2, color: 'White/Blue' }),
+        ],
+      })
+    );
 
     await user.click(screen.getByRole('button', { name: 'White/Blue' }));
 
@@ -231,12 +243,14 @@ describe('navigation', () => {
 describe('variant selection', () => {
   it('auto-selects the first in-stock variant', async () => {
     const user = userEvent.setup();
-    renderCard(makeProduct({
-      variants: [
-        makeVariant({ id: 1, size: '9', quantity: 0 }),
-        makeVariant({ id: 2, size: '10', quantity: 4 }),
-      ],
-    }));
+    renderCard(
+      makeProduct({
+        variants: [
+          makeVariant({ id: 1, size: '9', quantity: 0 }),
+          makeVariant({ id: 2, size: '10', quantity: 4 }),
+        ],
+      })
+    );
 
     await user.click(screen.getByRole('button', { name: 'Buy Now' }));
 
@@ -245,13 +259,15 @@ describe('variant selection', () => {
 
   it('adds the size the user picked', async () => {
     const user = userEvent.setup();
-    renderCard(makeProduct({
-      variants: [
-        makeVariant({ id: 1, size: '9' }),
-        makeVariant({ id: 2, size: '10' }),
-        makeVariant({ id: 3, size: '11' }),
-      ],
-    }));
+    renderCard(
+      makeProduct({
+        variants: [
+          makeVariant({ id: 1, size: '9' }),
+          makeVariant({ id: 2, size: '10' }),
+          makeVariant({ id: 3, size: '11' }),
+        ],
+      })
+    );
 
     await user.click(screen.getByRole('button', { name: '11' }));
     await user.click(screen.getByRole('button', { name: 'Buy Now' }));
@@ -261,12 +277,14 @@ describe('variant selection', () => {
 
   it('switches the size list when the colour changes', async () => {
     const user = userEvent.setup();
-    renderCard(makeProduct({
-      variants: [
-        makeVariant({ id: 1, size: '9', color: 'Black/Red' }),
-        makeVariant({ id: 2, size: '13', color: 'White/Blue' }),
-      ],
-    }));
+    renderCard(
+      makeProduct({
+        variants: [
+          makeVariant({ id: 1, size: '9', color: 'Black/Red' }),
+          makeVariant({ id: 2, size: '13', color: 'White/Blue' }),
+        ],
+      })
+    );
 
     expect(screen.getByRole('button', { name: '9' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '13' })).not.toBeInTheDocument();
@@ -281,7 +299,9 @@ describe('variant selection', () => {
 describe('add to cart', () => {
   it('adds the product with variant details and a stock ceiling', async () => {
     const user = userEvent.setup();
-    renderCard(makeProduct({ variants: [makeVariant({ id: 42, size: '10', quantity: 3 })] }));
+    renderCard(
+      makeProduct({ variants: [makeVariant({ id: 42, size: '10', quantity: 3 })] })
+    );
 
     await user.click(screen.getByRole('button', { name: 'Buy Now' }));
 
@@ -341,7 +361,7 @@ describe('no variants', () => {
     renderCard(makeProduct({ variants: [] }));
 
     expect(screen.getByText('Chicago')).toBeInTheDocument();
-    // availableColors.length <= 1 takes the plain-text branch.
+
     expect(screen.getByText('Black/Red')).toBeInTheDocument();
   });
 
@@ -386,11 +406,19 @@ describe('no network', () => {
     vi.stubGlobal('fetch', fetchSpy);
 
     const products = ['a', 'b', 'c'].map((id) =>
-      makeProduct({ id, name: id.toUpperCase(), variants: [makeVariant({ id: `${id}-1` })] })
+      makeProduct({
+        id,
+        name: id.toUpperCase(),
+        variants: [makeVariant({ id: `${id}-1` })],
+      })
     );
 
     renderWithProviders(
-      <div>{products.map((p) => <ProductCard key={p.id} product={p} />)}</div>
+      <div>
+        {products.map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
     );
 
     expect(fetchSpy).not.toHaveBeenCalled();

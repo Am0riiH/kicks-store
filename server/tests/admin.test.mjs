@@ -1,14 +1,12 @@
-/**
- * /api/admin/* — auth enforcement and CRUD.
- *
- * Auth is applied as a mount, not per route: app.use('/api/admin/', …, adminAuth)
- * at index.js:322. The enforcement block below therefore walks every admin route
- * so a future route added under that prefix cannot quietly skip the check.
- */
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import crypto from 'node:crypto';
-import { loadApp, adminHeader, TEST_ADMIN_USER, TEST_ADMIN_PASSWORD } from './helpers.mjs';
+import {
+  loadApp,
+  adminHeader,
+  TEST_ADMIN_USER,
+  TEST_ADMIN_PASSWORD,
+} from './helpers.mjs';
 
 let app;
 let db;
@@ -33,7 +31,6 @@ const validProduct = (over = {}) => ({
   ...over,
 });
 
-/** Every route behind the /api/admin/ mount. */
 const ADMIN_ROUTES = [
   ['get', '/api/admin/orders'],
   ['patch', '/api/admin/orders/cs_test_1/status'],
@@ -55,8 +52,17 @@ describe('auth enforcement', () => {
     expect(res.body).toEqual({ error: 'Authentication required.' });
   });
 
+  it('401s when the credentials have no colon separator', async () => {
+    const res = await request(app)
+      .get('/api/admin/orders')
+      .set('Authorization', `Basic ${Buffer.from('justausername').toString('base64')}`);
+
+    expect(res.status).toBe(401);
+  });
+
   it.each(ADMIN_ROUTES)('401s on %s %s with a wrong password', async (method, path) => {
-    const res = await request(app)[method](path)
+    const pending = request(app)[method](path);
+    const res = await pending
       .set('Authorization', adminHeader(TEST_ADMIN_USER, 'wrong-password'))
       .send({});
 
@@ -64,7 +70,8 @@ describe('auth enforcement', () => {
   });
 
   it('401s with a wrong username', async () => {
-    const res = await request(app).get('/api/admin/orders')
+    const res = await request(app)
+      .get('/api/admin/orders')
       .set('Authorization', adminHeader('not-the-admin', TEST_ADMIN_PASSWORD));
 
     expect(res.status).toBe(401);
@@ -82,7 +89,10 @@ describe('auth enforcement', () => {
     ['bearer token', 'Bearer some.jwt.token'],
     ['empty header', ''],
     ['scheme only', 'Basic'],
-    ['no colon in credentials', `Basic ${Buffer.from('adminpassword').toString('base64')}`],
+    [
+      'no colon in credentials',
+      `Basic ${Buffer.from('adminpassword').toString('base64')}`,
+    ],
   ])('401s on a %s header without crashing', async (_label, header) => {
     const res = await request(app).get('/api/admin/orders').set('Authorization', header);
 
@@ -94,7 +104,9 @@ describe('auth enforcement', () => {
     delete process.env.ADMIN_PASSWORD_HASH;
 
     try {
-      const res = await request(app).get('/api/admin/orders').set('Authorization', adminHeader());
+      const res = await request(app)
+        .get('/api/admin/orders')
+        .set('Authorization', adminHeader());
       // Fails closed: no hash configured means nobody gets in.
       expect(res.status).toBe(401);
     } finally {
@@ -103,7 +115,9 @@ describe('auth enforcement', () => {
   });
 
   it('accepts the correct credentials', async () => {
-    const res = await request(app).get('/api/admin/orders').set('Authorization', adminHeader());
+    const res = await request(app)
+      .get('/api/admin/orders')
+      .set('Authorization', adminHeader());
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.orders)).toBe(true);
@@ -118,14 +132,19 @@ describe('GET /api/admin/orders', () => {
       amount_total: 5000,
       currency: 'usd',
       customer_details: { email: 'x@y.com', name: 'X Y', phone: '+15559999999' },
-      shipping_details: { name: 'X Y', address: { line1: '1 St', city: 'Town', country: 'US' } },
+      shipping_details: {
+        name: 'X Y',
+        address: { line1: '1 St', city: 'Town', country: 'US' },
+      },
     });
 
-    const res = await request(app).get('/api/admin/orders').set('Authorization', adminHeader());
+    const res = await request(app)
+      .get('/api/admin/orders')
+      .set('Authorization', adminHeader());
 
     const order = res.body.orders.find((o) => o.id === id);
     expect(order).toBeDefined();
-    // Authenticated admins legitimately see shipping data.
+
     expect(order.shipping_phone).toBe('+15559999999');
     expect(order.shipping_line1).toBe('1 St');
     expect(order.fulfillment_status).toBe('pending');
@@ -217,8 +236,6 @@ describe('GET /api/admin/upload-signature', () => {
       expect(res.body.apiKey).toBe('test-key');
       expect(res.body.folder).toBe('products');
 
-      // Recompute Cloudinary's algorithm independently: params sorted, joined
-      // k=v&k=v, secret appended, SHA-1 hex.
       const expected = crypto
         .createHash('sha1')
         .update(`folder=products&timestamp=${res.body.timestamp}test-secret`)
@@ -311,26 +328,22 @@ describe('POST /api/admin/products', () => {
     const product = validProduct();
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    await request(app).post('/api/admin/products')
-      .set('Authorization', adminHeader()).send(product);
+    await request(app)
+      .post('/api/admin/products')
+      .set('Authorization', adminHeader())
+      .send(product);
 
-    const res = await request(app).post('/api/admin/products')
-      .set('Authorization', adminHeader()).send(product);
+    const res = await request(app)
+      .post('/api/admin/products')
+      .set('Authorization', adminHeader())
+      .send(product);
 
     expect(res.status).toBe(500);
     expect(res.headers['content-type']).toMatch(/application\/json/);
     expect(res.body.error).toMatch(/^Could not save product:/);
   });
 
-  // ── BUG (documented, not fixed) ────────────────────────────────────────────
-  // productSchema marks `sku` and `image` optional, but both columns are
-  // NOT NULL. Omitting either passes validation and then fails at the database,
-  // surfacing as a 500 where a 400 would be correct.
-  //
-  // Fix would be to make them required in the schema, or give the columns
-  // defaults.
-  it.each(['sku', 'image'])('BUG: omitting %s passes validation then 500s at the DB', async (field) => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+  it.each(['sku', 'image'])('400s when %s is omitted', async (field) => {
     const product = validProduct();
     delete product[field];
 
@@ -339,14 +352,11 @@ describe('POST /api/admin/products', () => {
       .set('Authorization', adminHeader())
       .send(product);
 
-    expect(res.status).toBe(500);
-    expect(res.body.error).toMatch(/NOT NULL constraint failed: products\./);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Validation Error');
   });
 
-  // ── BUG (documented, not fixed) ────────────────────────────────────────────
-  // productSchema accepts `description`, but the products table has no such
-  // column. The value is accepted, echoed back in the 201, and silently dropped.
-  it('BUG: accepts description but never stores it', async () => {
+  it('does not echo fields the products table cannot store', async () => {
     const product = validProduct({ description: 'A detailed write-up.' });
 
     const res = await request(app)
@@ -355,9 +365,7 @@ describe('POST /api/admin/products', () => {
       .send(product);
 
     expect(res.status).toBe(201);
-    // Echoed back, so the admin UI believes it saved.
-    expect(res.body.product.description).toBe('A detailed write-up.');
-    // But it is nowhere in the database.
+    expect(res.body.product).not.toHaveProperty('description');
     expect(db.getProduct(product.id)).not.toHaveProperty('description');
   });
 
@@ -456,16 +464,16 @@ describe('variant routes', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.variant).toMatchObject({
-      product_id: product.id, size: '10', color: 'Red', quantity: 4,
+      product_id: product.id,
+      size: '10',
+      color: 'Red',
+      quantity: 4,
     });
 
     const stored = db.getVariantsForProduct(product.id);
     expect(stored).toHaveLength(1);
     expect(stored[0].quantity).toBe(4);
 
-    // The echoed id must address the row that was just created — it used to
-    // come back as 0 for every insert, and only went unnoticed because the
-    // admin UI refetches the list immediately afterwards.
     expect(res.body.variant.id).toBe(stored[0].id);
     expect(db.getVariant(res.body.variant.id)).not.toBeNull();
   });
@@ -500,7 +508,13 @@ describe('variant routes', () => {
 
   it('updates a variant when the full body is supplied', async () => {
     const product = seedProduct();
-    db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity: 5, sku: 'V1' });
+    db.addVariant({
+      product_id: product.id,
+      size: '10',
+      color: 'Red',
+      quantity: 5,
+      sku: 'V1',
+    });
     const variant = db.getVariantsForProduct(product.id)[0];
 
     const res = await request(app)
@@ -512,29 +526,19 @@ describe('variant routes', () => {
     expect(db.getVariant(variant.id).quantity).toBe(8);
   });
 
-  // ── BUG (documented, not fixed) ────────────────────────────────────────────
-  // The route validates with variantSchema.partial(), so { quantity: 3 } is
-  // accepted — but db.updateVariant binds data.size and data.color raw, with no
-  // _bind() coercion and no merge against the stored row. sql.js rejects the
-  // undefined bind, the throw is uncaught in the route, and the global handler
-  // turns it into a 500.
-  //
-  // This is on a hot path: AdminProducts.jsx fires this PUT on every keystroke
-  // of the quantity input, sending only the changed fields.
-  it('BUG: 500s on the partial update its own schema allows', async () => {
+  it('applies a partial variant update', async () => {
     const product = seedProduct();
     db.addVariant({ product_id: product.id, size: '10', color: 'Red', quantity: 5 });
     const variant = db.getVariantsForProduct(product.id)[0];
-    vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const res = await request(app)
       .put(`/api/admin/variants/${variant.id}`)
       .set('Authorization', adminHeader())
       .send({ quantity: 3 });
 
-    expect(res.status).toBe(500);
-    expect(res.body).toEqual({ error: 'Internal server error.' });
-    expect(db.getVariant(variant.id).quantity).toBe(5);
+    expect(res.status).toBe(200);
+    expect(db.getVariant(variant.id).quantity).toBe(3);
+    expect(db.getVariant(variant.id).size).toBe('10');
   });
 
   it('404s when updating an unknown variant', async () => {

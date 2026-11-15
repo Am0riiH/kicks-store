@@ -2,22 +2,25 @@ import { Fragment, useEffect, useState } from 'react';
 import AdminNav from '../components/AdminNav.jsx';
 import { API_BASE } from '../lib/api.js';
 import {
-  useAdminAuth, useNoIndex, readAdminResponse, isUnauthorized,
+  useAdminAuth,
+  useNoIndex,
+  readAdminResponse,
+  isUnauthorized,
 } from '../hooks/useAdminAuth.js';
 
 export default function AdminOrders() {
   const {
-    authHeader, username, setUsername, password, setPassword,
-    loginError, loggingIn, login, logout,
+    authHeader,
+    username,
+    setUsername,
+    password,
+    setPassword,
+    loginError,
+    loggingIn,
+    login,
+    logout,
   } = useAdminAuth('/api/admin/orders');
 
-  // Dashboard state.
-  //
-  // `loading` starts true when a stored session exists, rather than being
-  // flipped on inside the mount effect below. Setting it there meant the first
-  // paint rendered the dashboard with an empty order list before the effect
-  // switched it to the loading state — a visible flash of "No orders found" on
-  // every reload — and cost an extra render to correct itself.
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(() => !!sessionStorage.getItem('adminAuth'));
   const [error, setError] = useState(null);
@@ -33,19 +36,17 @@ export default function AdminOrders() {
     setError(null);
   };
 
-  // On mount, if we have a stored session, verify it and load orders.
   useEffect(() => {
     const stored = sessionStorage.getItem('adminAuth');
     if (!stored) return;
 
-    fetch(`${API_BASE}/api/admin/orders`, { headers: { 'Authorization': stored } })
+    fetch(`${API_BASE}/api/admin/orders`, { headers: { Authorization: stored } })
       .then(readAdminResponse)
       .then((data) => {
         setOrders(data.orders || []);
         setLoading(false);
       })
       .catch((err) => {
-        // Silently log out if stored credentials became invalid.
         if (isUnauthorized(err)) handleLogout();
         else setError(err.message);
         setLoading(false);
@@ -59,29 +60,28 @@ export default function AdminOrders() {
   };
 
   const handleStatusChange = (id, newStatus) => {
-    // Optimistic update
     const previousOrders = [...orders];
-    setOrders(orders.map(o => o.id === id ? { ...o, fulfillment_status: newStatus } : o));
+    setOrders(
+      orders.map((o) => (o.id === id ? { ...o, fulfillment_status: newStatus } : o))
+    );
 
     fetch(`${API_BASE}/api/admin/orders/${id}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader
+        Authorization: authHeader,
       },
-      body: JSON.stringify({ status: newStatus })
+      body: JSON.stringify({ status: newStatus }),
     })
-    .then(res => {
-      if (!res.ok) throw new Error('Failed to update status');
-    })
-    .catch(err => {
-      // Revert on error
-      setOrders(previousOrders);
-      alert('Error updating status: ' + err.message);
-    });
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to update status');
+      })
+      .catch((err) => {
+        setOrders(previousOrders);
+        alert('Error updating status: ' + err.message);
+      });
   };
 
-  // ─── Render: Login Form (if not authenticated) ─────────────────────────────
   if (!authHeader) {
     return (
       <div className="min-h-screen pt-32 px-6 flex flex-col items-center justify-center">
@@ -96,10 +96,6 @@ export default function AdminOrders() {
           </div>
 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            {/* htmlFor/id pairs: without them the <label> is only visually
-                adjacent, so a screen reader announces these as unlabelled edit
-                fields. WCAG 1.3.1 / 4.1.2. autoComplete also lets password
-                managers fill the form. */}
             <div>
               <label
                 htmlFor="admin-username"
@@ -156,7 +152,6 @@ export default function AdminOrders() {
     );
   }
 
-  // ─── Render: Dashboard (authenticated) ─────────────────────────────────────
   if (loading && orders.length === 0) {
     return (
       <div className="min-h-screen pt-32 px-6 flex items-center justify-center text-smoke font-mono text-sm uppercase tracking-widest">
@@ -172,7 +167,7 @@ export default function AdminOrders() {
           Dashboard Error
         </p>
         <p className="text-smoke max-w-sm">{error}</p>
-        <button 
+        <button
           onClick={() => window.location.reload()}
           className="mt-6 px-6 py-2 border border-white/20 rounded text-bone hover:bg-white/5 transition-colors text-sm uppercase font-display tracking-wide"
         >
@@ -188,30 +183,27 @@ export default function AdminOrders() {
     const emailMatch = o.customer_email?.toLowerCase().includes(term);
     const idMatch = o.id?.toLowerCase().includes(term);
     const matchesSearch = nameMatch || emailMatch || idMatch;
-    
+
     const status = o.fulfillment_status || 'pending';
     const matchesStatus = statusFilter === 'all' || status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
   return (
     <div className="min-h-screen pt-32 px-6 pb-20">
       <div className="max-w-6xl mx-auto">
-        
-        {/* Header Bar */}
         <AdminNav onLogout={handleLogout} />
-        
-        {/* Filters and Search */}
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
           <div className="flex gap-2">
-            {['all', 'pending', 'completed', 'rejected'].map(s => (
+            {['all', 'pending', 'completed', 'rejected'].map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
                 className={`px-3 py-1 text-xs font-mono uppercase tracking-wider rounded border transition-colors ${
-                  statusFilter === s 
-                    ? 'border-volt text-volt bg-volt/10' 
+                  statusFilter === s
+                    ? 'border-volt text-volt bg-volt/10'
                     : 'border-white/20 text-smoke hover:border-white/40 hover:text-bone'
                 }`}
               >
@@ -230,7 +222,6 @@ export default function AdminOrders() {
           </div>
         </div>
 
-        {/* Orders Table */}
         {filteredOrders.length === 0 ? (
           <div className="py-20 text-center border border-dashed border-white/20 rounded-xl bg-white/5">
             <p className="text-smoke font-mono text-sm uppercase tracking-widest">
@@ -254,27 +245,31 @@ export default function AdminOrders() {
               <tbody className="divide-y divide-white/5 font-mono text-sm text-bone">
                 {filteredOrders.map((order) => {
                   const status = order.fulfillment_status || 'pending';
-                  const badgeColor = status === 'completed' 
-                    ? 'text-volt bg-volt/10 border-volt/20' 
-                    : status === 'rejected' 
-                      ? 'text-red-400 bg-red-400/10 border-red-400/20' 
-                      : 'text-smoke bg-white/5 border-white/10';
+                  const badgeColor =
+                    status === 'completed'
+                      ? 'text-volt bg-volt/10 border-volt/20'
+                      : status === 'rejected'
+                        ? 'text-red-400 bg-red-400/10 border-red-400/20'
+                        : 'text-smoke bg-white/5 border-white/10';
                   const isExpanded = expandedOrderId === order.id;
 
                   return (
                     <Fragment key={order.id}>
-                      <tr 
+                      <tr
                         className={`hover:bg-white/5 transition-colors cursor-pointer ${isExpanded ? 'bg-white/5' : ''}`}
                         onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
                       >
                         <td className="p-4 whitespace-nowrap text-smoke">
-                          {new Date(order.created_at).toLocaleDateString(undefined, { 
-                            month: 'short', day: 'numeric', year: 'numeric' 
+                          {new Date(order.created_at).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
                           })}
-                          <br/>
+                          <br />
                           <span className="text-[10px] text-smoke">
-                            {new Date(order.created_at).toLocaleTimeString(undefined, { 
-                              hour: '2-digit', minute: '2-digit' 
+                            {new Date(order.created_at).toLocaleTimeString(undefined, {
+                              hour: '2-digit',
+                              minute: '2-digit',
                             })}
                           </span>
                         </td>
@@ -290,48 +285,68 @@ export default function AdminOrders() {
                           <div className="flex flex-col gap-1 text-xs">
                             {order.items?.map((item, i) => (
                               <div key={i} className="flex justify-between gap-4">
-                                <span className="truncate max-w-[200px]" title={item.description}>
+                                <span
+                                  className="truncate max-w-[200px]"
+                                  title={item.description}
+                                >
                                   {item.description}
                                 </span>
-                                <span className="text-smoke whitespace-nowrap">× {item.quantity}</span>
+                                <span className="text-smoke whitespace-nowrap">
+                                  × {item.quantity}
+                                </span>
                               </div>
                             ))}
                           </div>
                         </td>
                         <td className="p-4 text-right font-bold text-volt whitespace-nowrap">
-                          ${(order.amount_total / 100).toFixed(2)} {order.currency?.toUpperCase()}
+                          ${(order.amount_total / 100).toFixed(2)}{' '}
+                          {order.currency?.toUpperCase()}
                         </td>
                         <td className="p-4">
-                          <span className={`px-2 py-1 text-[10px] uppercase tracking-widest rounded border ${badgeColor}`}>
+                          <span
+                            className={`px-2 py-1 text-[10px] uppercase tracking-widest rounded border ${badgeColor}`}
+                          >
                             {status}
                           </span>
                         </td>
                         <td className="p-4">
-                          <div className="text-xs text-smoke truncate w-24" title={order.id}>
+                          <div
+                            className="text-xs text-smoke truncate w-24"
+                            title={order.id}
+                          >
                             {order.id}
                           </div>
                         </td>
                         <td className="p-4 text-right whitespace-nowrap">
                           <div className="flex gap-2 justify-end">
                             {status !== 'completed' && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'completed'); }}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(order.id, 'completed');
+                                }}
                                 className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-volt hover:bg-volt/10 rounded border border-volt/20 transition-colors"
                               >
                                 Complete
                               </button>
                             )}
                             {status !== 'rejected' && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'rejected'); }}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(order.id, 'rejected');
+                                }}
                                 className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-red-400 hover:bg-red-400/10 rounded border border-red-400/20 transition-colors"
                               >
                                 Reject
                               </button>
                             )}
                             {status !== 'pending' && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'pending'); }}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(order.id, 'pending');
+                                }}
                                 className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-smoke hover:bg-white/5 rounded border border-white/10 transition-colors"
                               >
                                 Reset
@@ -345,26 +360,40 @@ export default function AdminOrders() {
                           <td colSpan="7" className="p-6">
                             <div className="flex flex-col sm:flex-row gap-12">
                               <div>
-                                <h4 className="text-[10px] font-mono text-smoke uppercase tracking-widest mb-3">Shipping Details</h4>
+                                <h4 className="text-[10px] font-mono text-smoke uppercase tracking-widest mb-3">
+                                  Shipping Details
+                                </h4>
                                 {order.shipping_name ? (
                                   <div className="text-sm font-mono text-bone leading-relaxed">
-                                    <div className="font-bold mb-1">{order.shipping_name}</div>
+                                    <div className="font-bold mb-1">
+                                      {order.shipping_name}
+                                    </div>
                                     <div>{order.shipping_line1}</div>
-                                    {order.shipping_line2 && <div>{order.shipping_line2}</div>}
+                                    {order.shipping_line2 && (
+                                      <div>{order.shipping_line2}</div>
+                                    )}
                                     <div>
                                       {order.shipping_city}
-                                      {order.shipping_state ? `, ${order.shipping_state}` : ''}{' '}
+                                      {order.shipping_state
+                                        ? `, ${order.shipping_state}`
+                                        : ''}{' '}
                                       {order.shipping_postal_code}
                                     </div>
-                                    <div className="text-smoke mt-1">{order.shipping_country}</div>
+                                    <div className="text-smoke mt-1">
+                                      {order.shipping_country}
+                                    </div>
                                   </div>
                                 ) : (
-                                  <div className="text-sm font-mono text-smoke italic">No shipping information provided.</div>
+                                  <div className="text-sm font-mono text-smoke italic">
+                                    No shipping information provided.
+                                  </div>
                                 )}
                               </div>
                               {order.shipping_phone && (
                                 <div>
-                                  <h4 className="text-[10px] font-mono text-smoke uppercase tracking-widest mb-3">Contact Phone</h4>
+                                  <h4 className="text-[10px] font-mono text-smoke uppercase tracking-widest mb-3">
+                                    Contact Phone
+                                  </h4>
                                   <div className="text-sm font-mono text-bone">
                                     {order.shipping_phone}
                                   </div>

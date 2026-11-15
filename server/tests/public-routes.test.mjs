@@ -18,8 +18,6 @@ describe('test harness', () => {
   });
 
   it('shares one sql.js instance between the test and the app', async () => {
-    // If the test's `db` were a different module instance from the one
-    // index.js required, this row would be invisible to the route below.
     db.createProduct({
       id: 'harness-probe',
       name: 'Harness Probe',
@@ -73,9 +71,14 @@ describe('GET /api/products', () => {
     const chicago = res.body.products.find((p) => p.id === 'sk1-chicago');
     expect(chicago.variants.length).toBe(6);
     expect(chicago.variants.every((v) => v.product_id === 'sk1-chicago')).toBe(true);
-    expect(chicago.variants.map((v) => v.size).sort()).toEqual(
-      ['10', '11', '12', '13', '8', '9']
-    );
+    expect(chicago.variants.map((v) => v.size).sort()).toEqual([
+      '10',
+      '11',
+      '12',
+      '13',
+      '8',
+      '9',
+    ]);
   });
 });
 
@@ -170,10 +173,6 @@ describe('GET /api/order-status', () => {
 
     expect(res.status).toBe(200);
 
-    // M2 regression. This is an unauthenticated endpoint: anyone holding a
-    // session id can call it, so the response shape is a security boundary.
-    // Asserting the exact key set means any new column added to `orders` fails
-    // this test rather than silently leaking.
     expect(Object.keys(res.body).sort()).toEqual([
       'amount_total',
       'currency',
@@ -194,22 +193,28 @@ describe('GET /api/order-status', () => {
       .get('/api/order-status')
       .query({ session_id: SESSION_ID });
 
-    // Present on the stored row — prove they are withheld.
     const stored = db.getOrder(SESSION_ID);
     expect(stored.shipping_postal_code).toBe('90210');
     expect(stored.shipping_phone).toBe('+15551234567');
 
     const forbidden = [
-      'shipping_name', 'shipping_phone', 'shipping_line1', 'shipping_line2',
-      'shipping_city', 'shipping_state', 'shipping_postal_code', 'shipping_country',
-      'status', 'fulfillment_status', 'created_at',
+      'shipping_name',
+      'shipping_phone',
+      'shipping_line1',
+      'shipping_line2',
+      'shipping_city',
+      'shipping_state',
+      'shipping_postal_code',
+      'shipping_country',
+      'status',
+      'fulfillment_status',
+      'created_at',
     ];
 
     for (const key of forbidden) {
       expect(res.body).not.toHaveProperty(key);
     }
 
-    // Also assert on the raw body, in case a value is nested somewhere.
     expect(res.text).not.toContain('90210');
     expect(res.text).not.toContain('+15551234567');
     expect(res.text).not.toContain('99 Private Road');

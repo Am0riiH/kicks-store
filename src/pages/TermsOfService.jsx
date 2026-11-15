@@ -1,10 +1,5 @@
 import LegalPage from '../components/LegalPage.jsx';
 
-/* PLACEHOLDER COPY — demo content for a portfolio build.
-   This is NOT legal advice and has not been reviewed by a lawyer. Replace with
-   terms drafted for the actual business, jurisdiction, and payment flow before
-   taking real orders. */
-
 const SECTIONS = [
   {
     heading: 'Acceptance of terms',

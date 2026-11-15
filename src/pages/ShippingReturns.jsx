@@ -1,9 +1,5 @@
 import LegalPage from '../components/LegalPage.jsx';
 
-/* PLACEHOLDER COPY — demo content for a portfolio build.
-   Every timeframe, price, and threshold below is illustrative. Replace with
-   the real carrier rates, cut-off times, and return window before launch. */
-
 const SECTIONS = [
   {
     heading: 'Dispatch times',

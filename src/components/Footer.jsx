@@ -2,9 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { API_BASE, describeApiError } from '../lib/api.js';
 
-/* TODO: PLACEHOLDER SOCIAL LINKS — every href below is "#".
-   Replace with the real profile URLs before launch, and add
-   target="_blank" rel="noopener noreferrer" once they point off-site. */
 const SOCIALS = [
   {
     name: 'Instagram',
@@ -55,7 +52,9 @@ const LEGAL_LINKS = [
 
 function ColumnHeading({ children }) {
   return (
-    <h2 className="mb-4 font-mono text-xs uppercase tracking-widest text-smoke">{children}</h2>
+    <h2 className="mb-4 font-mono text-xs uppercase tracking-widest text-smoke">
+      {children}
+    </h2>
   );
 }
 
@@ -64,7 +63,10 @@ function LinkList({ links }) {
     <ul className="flex flex-col gap-3">
       {links.map((l) => (
         <li key={l.to}>
-          <Link to={l.to} className="text-sm text-smoke transition-colors hover:text-bone">
+          <Link
+            to={l.to}
+            className="text-sm text-smoke transition-colors hover:text-bone"
+          >
             {l.label}
           </Link>
         </li>
@@ -73,9 +75,6 @@ function LinkList({ links }) {
   );
 }
 
-/* Decorative payment marks — wordmarks rather than brand logos, so nothing
-   here misrepresents a partnership. aria-hidden: they convey no information a
-   screen-reader user needs at this point in the page. */
 function PaymentMarks() {
   return (
     <div aria-hidden="true" className="flex items-center gap-2">
@@ -178,9 +177,11 @@ export default function Footer() {
     <footer className="relative z-10 border-t border-white/10 bg-ink">
       <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10">
         <div className="grid grid-cols-2 gap-x-8 gap-y-12 lg:grid-cols-5">
-          {/* Brand */}
           <div className="col-span-2 lg:col-span-2">
-            <Link to="/" className="font-display text-2xl uppercase tracking-tight text-bone">
+            <Link
+              to="/"
+              className="font-display text-2xl uppercase tracking-tight text-bone"
+            >
               NIKE<span className="text-volt">.</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-smoke">
@@ -231,10 +232,9 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom bar */}
         <div className="mt-14 flex flex-col gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-mono text-xs text-smoke">
-            © {new Date().getFullYear()} Air Jordan Drop Site. All rights reserved.
+            © {new Date().getFullYear()} Sneakers Drop Site. All rights reserved.
           </p>
           <PaymentMarks />
         </div>
